@@ -32,5 +32,13 @@ fun sendNotification(context: Context) {
         .setPriority(NotificationCompat.PRIORITY_DEFAULT)
         .build()
 
-    NotificationManagerCompat.from(context).notify(1, notification)
+    // Check notification permission for Android 13+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == 
+            android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            NotificationManagerCompat.from(context).notify(1, notification)
+        }
+    } else {
+        NotificationManagerCompat.from(context).notify(1, notification)
+    }
 }

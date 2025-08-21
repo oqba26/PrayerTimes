@@ -1,0 +1,121 @@
+// فایل Gradle Task برای اعمال تغییرات
+// این فایل را در root پروژه قرار دهید و سپس اجرا کنید
+
+task applyPrayerTimesFixes {
+    group 'custom'
+    description 'Apply all fixes for PrayerTimes project'
+    
+    doLast {
+        println "🚀 شروع اعمال تغییرات..."
+        
+        // 1. ایجاد local.properties
+        def localPropsFile = file('local.properties')
+        if (!localPropsFile.exists()) {
+            localPropsFile.text = '''# This file contains the path of the Android SDK location.
+# For information on how to configure your Android SDK, please refer to the documentation.
+# Example (Windows):
+# sdk.dir=C\\:\\Users\\YourName\\AppData\\Local\\Android\\Sdk
+# Example (macOS/Linux):
+# sdk.dir=/Users/YourName/Library/Android/sdk
+
+# Note: You need to set the actual path to your Android SDK
+# sdk.dir=/path/to/your/android-sdk'''
+            println "✅ فایل local.properties ایجاد شد"
+        } else {
+            println "⚠️ فایل local.properties از قبل موجود است"
+        }
+        
+        // 2. بروزرسانی PrayerUtils.kt
+        def prayerUtilsFile = file('app/src/main/java/com/oqba26/prayertimes/utils/PrayerUtils.kt')
+        prayerUtilsFile.text = '''package com.oqba26.prayertimes.utils
+
+import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.oqba26.prayertimes.models.MultiDate
+import java.io.InputStreamReader
+
+fun getPrayerTimes(context: Context, date: MultiDate): Map<String, String> {
+    try {
+        val inputStream = context.assets.open("prayer_times.json")
+        val reader = InputStreamReader(inputStream)
+        val type = object : TypeToken<Map<String, Map<String, String>>>() {}.type
+        val data: Map<String, Map<String, String>> = Gson().fromJson(reader, type)
+        reader.close()
+        inputStream.close()
+        
+        // استخراج ماه و روز از تاریخ شمسی برای جستجو در داده‌های 12 ماهه
+        val monthDay = extractMonthDay(date.shamsi)
+        return data[monthDay] ?: getDefaultPrayerTimes()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return getDefaultPrayerTimes()
+    }
+}
+
+private fun extractMonthDay(shamsiDate: String): String {
+    // از تاریخ کامل مثل "1403/01/15" فقط "01/15" رو استخراج می‌کنه
+    val parts = shamsiDate.split("/")
+    return if (parts.size >= 3) {
+        "${parts[1]}/${parts[2]}"
+    } else {
+        shamsiDate
+    }
+}
+
+private fun getDefaultPrayerTimes(): Map<String, String> {
+    return linkedMapOf(
+        "طلوع بامداد" to "05:00",
+        "طلوع خورشید" to "06:30",
+        "ظهر" to "12:30",
+        "عصر" to "16:00",
+        "غروب" to "18:30",
+        "عشاء" to "20:00"
+    )
+}'''
+        println "✅ PrayerUtils.kt بروزرسانی شد"
+        
+        // 3. ایجاد فایل JSON نمونه
+        def assetsDir = file('app/src/main/assets')
+        if (!assetsDir.exists()) {
+            assetsDir.mkdirs()
+        }
+        
+        def sampleJsonFile = file('app/src/main/assets/prayer_times_sample.json')
+        sampleJsonFile.text = '''{
+  "_comment": "این فایل نمونه است. فایل اصلی prayer_times.json را با داده‌های کامل خودتان جایگزین کنید",
+  "01/01": {
+    "طلوع بامداد": "05:15",
+    "طلوع خورشید": "06:45",
+    "ظهر": "12:15",
+    "عصر": "15:45",
+    "غروب": "18:00",
+    "عشاء": "19:30"
+  },
+  "01/02": {
+    "طلوع بامداد": "05:14",
+    "طلوع خورشید": "06:44",
+    "ظهر": "12:15",
+    "عصر": "15:46",
+    "غروب": "18:01",
+    "عشاء": "19:31"
+  },
+  "01/03": {
+    "طلوع بامداد": "05:13",
+    "طلوع خورشید": "06:43",
+    "ظهر": "12:16",
+    "عصر": "15:47",
+    "غروب": "18:02",
+    "عشاء": "19:32"
+  }
+}'''
+        println "✅ فایل JSON نمونه ایجاد شد"
+        
+        println "🎉 همه تغییرات با موفقیت اعمال شد!"
+        println ""
+        println "📋 مراحل بعدی:"
+        println "1. مسیر Android SDK را در local.properties تنظیم کنید"
+        println "2. فایل prayer_times.json را با داده‌های کامل خودتان جایگزین کنید"
+        println "3. پروژه را Sync کنید"
+    }
+}

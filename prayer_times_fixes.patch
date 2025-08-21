@@ -1,0 +1,67 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 1234567..abcdefg 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -5,6 +5,7 @@
+     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+     <uses-permission android:name="android.permission.SET_ALARM" />
+     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
++    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+ 
+     <application
+         android:allowBackup="true"
+@@ -13,6 +14,7 @@
+         android:roundIcon="@mipmap/ic_launcher_round"
+         android:supportsRtl="true"
++        android:layoutDirection="rtl"
+         android:theme="@style/Theme.PrayerTimes">
+ 
+         <activity
+
+diff --git a/app/src/main/java/com/oqba26/prayertimes/utils/PrayerUtils.kt b/app/src/main/java/com/oqba26/prayertimes/utils/PrayerUtils.kt
+index 1234567..abcdefg 100644
+--- a/app/src/main/java/com/oqba26/prayertimes/utils/PrayerUtils.kt
++++ b/app/src/main/java/com/oqba26/prayertimes/utils/PrayerUtils.kt
+@@ -8,15 +8,30 @@ import java.io.InputStreamReader
+ 
+ fun getPrayerTimes(context: Context, date: MultiDate): Map<String, String> {
+     try {
+         val inputStream = context.assets.open("prayer_times.json")
+         val reader = InputStreamReader(inputStream)
+-        val type = object : TypeToken<Map<String, Map<String, Map<String, String>>>>() {}.type
+-        val data: Map<String, Map<String, Map<String, String>>> = Gson().fromJson(reader, type)
+-        return data["tehran"]?.get(date.shamsi) ?: emptyMap()
++        val type = object : TypeToken<Map<String, Map<String, String>>>() {}.type
++        val data: Map<String, Map<String, String>> = Gson().fromJson(reader, type)
++        reader.close()
++        inputStream.close()
++        
++        // استخراج ماه و روز از تاریخ شمسی برای جستجو در داده‌های 12 ماهه
++        val monthDay = extractMonthDay(date.shamsi)
++        return data[monthDay] ?: getDefaultPrayerTimes()
+     } catch (e: Exception) {
+-        return emptyMap()
++        e.printStackTrace()
++        return getDefaultPrayerTimes()
+     }
+ }
++
++private fun extractMonthDay(shamsiDate: String): String {
++    val parts = shamsiDate.split("/")
++    return if (parts.size >= 3) {
++        "${parts[1]}/${parts[2]}"
++    } else {
++        shamsiDate
++    }
++}
++
++private fun getDefaultPrayerTimes(): Map<String, String> {
++    return linkedMapOf(
++        "طلوع بامداد" to "05:00",
++        "طلوع خورشید" to "06:30",
++        "ظهر" to "12:30",
++        "عصر" to "16:00",
++        "غروب" to "18:30",
++        "عشاء" to "20:00"
++    )
++}
