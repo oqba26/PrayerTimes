@@ -22,10 +22,29 @@ fun setDailyAlarm(context: Context) {
         calendar.add(Calendar.DAY_OF_YEAR, 1)
     }
 
-    alarmManager.setRepeating(
-        AlarmManager.RTC_WAKEUP,
-        calendar.timeInMillis,
-        AlarmManager.INTERVAL_DAY,
-        pendingIntent
-    )
+    // Check for exact alarm permission on Android 12+
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        if (alarmManager.canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                pendingIntent
+            )
+        } else {
+            // Fallback to inexact alarm
+            alarmManager.setRepeating(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                AlarmManager.INTERVAL_DAY,
+                pendingIntent
+            )
+        }
+    } else {
+        alarmManager.setRepeating(
+            AlarmManager.RTC_WAKEUP,
+            calendar.timeInMillis,
+            AlarmManager.INTERVAL_DAY,
+            pendingIntent
+        )
+    }
 }

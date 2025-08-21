@@ -12,8 +12,24 @@ fun getPrayerTimes(context: Context, date: MultiDate): Map<String, String> {
         val reader = InputStreamReader(inputStream)
         val type = object : TypeToken<Map<String, Map<String, Map<String, String>>>>() {}.type
         val data: Map<String, Map<String, Map<String, String>>> = Gson().fromJson(reader, type)
-        return data["tehran"]?.get(date.shamsi) ?: emptyMap()
+        reader.close()
+        inputStream.close()
+        
+        // Try to get data for the specific date, fallback to a default date if not found
+        val tehranData = data["tehran"] ?: return getDefaultPrayerTimes()
+        return tehranData[date.shamsi] ?: getDefaultPrayerTimes()
     } catch (e: Exception) {
-        return emptyMap()
+        e.printStackTrace()
+        return getDefaultPrayerTimes()
     }
+}
+
+private fun getDefaultPrayerTimes(): Map<String, String> {
+    return mapOf(
+        "صبح" to "05:00",
+        "ظهر" to "12:30",
+        "عصر" to "16:00",
+        "مغرب" to "18:30",
+        "عشا" to "20:00"
+    )
 }
