@@ -15,20 +15,32 @@ fun getPrayerTimes(context: Context, date: MultiDate): Map<String, String> {
         reader.close()
         inputStream.close()
         
-        // مستقیماً داده‌های تاریخ مورد نظر را برگردان
-        return data[date.shamsi] ?: getDefaultPrayerTimes()
+        // استخراج ماه و روز از تاریخ شمسی برای جستجو در داده‌های 12 ماهه
+        val monthDay = extractMonthDay(date.shamsi)
+        return data[monthDay] ?: getDefaultPrayerTimes()
     } catch (e: Exception) {
         e.printStackTrace()
         return getDefaultPrayerTimes()
     }
 }
 
+private fun extractMonthDay(shamsiDate: String): String {
+    // از تاریخ کامل مثل "1403/01/15" فقط "01/15" رو استخراج می‌کنه
+    val parts = shamsiDate.split("/")
+    return if (parts.size >= 3) {
+        "${parts[1]}/${parts[2]}"
+    } else {
+        shamsiDate
+    }
+}
+
 private fun getDefaultPrayerTimes(): Map<String, String> {
-    return mapOf(
-        "صبح" to "05:00",
+    return linkedMapOf(
+        "طلوع بامداد" to "05:00",
+        "طلوع خورشید" to "06:30",
         "ظهر" to "12:30",
         "عصر" to "16:00",
-        "مغرب" to "18:30",
-        "عشا" to "20:00"
+        "غروب" to "18:30",
+        "عشاء" to "20:00"
     )
 }
