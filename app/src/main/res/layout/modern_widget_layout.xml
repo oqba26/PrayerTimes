@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:gravity="center"
+    android:layoutDirection="rtl"
+    android:background="@drawable/modern_widget_background">
+
+    <!-- 🕒 ساعت با ثانیه -->
+    <TextView
+        android:id="@+id/tv_clock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="۱۴:۲۵:۳۲"
+        android:textSize="24sp"
+        android:textColor="#004D40"
+        android:textStyle="bold" />
+
+    <!-- 📅 تاریخ شمسی -->
+    <TextView
+        android:id="@+id/tv_persian_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="جمعه ۲۳ شهریور ۱۴۰۴"
+        android:textSize="16sp"
+        android:textColor="#0E7490"
+        android:textStyle="bold"
+        android:layout_marginBottom="4dp" />
+
+    <!-- قمری | میلادی -->
+    <TextView
+        android:id="@+id/tv_hg_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="۱۰ صفر ۱۴۴۶ | ۳۰ آگوست ۲۰۲۵"
+        android:textSize="14sp"
+        android:textColor="#555"
+        android:layout_marginBottom="8dp" />
+
+    <!-- خط جداکننده -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#D0D0D0"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        />
+
+    <!-- 🕌 اوقات نماز افقی -->
+    <LinearLayout
+        android:id="@+id/times_row_1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tv_fajr_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="بامداد: ۰۴:۳۰"
+            android:textSize="13sp"
+            android:textColor="#3F51B5"
+            android:layout_marginHorizontal="8dp" />
+
+        <TextView
+            android:id="@+id/tv_sunrise_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="خورشید: ۰۵:۵۷"
+            android:textSize="13sp"
+            android:textColor="#FF9800"
+            android:layout_marginHorizontal="8dp" />
+
+        <TextView
+            android:id="@+id/tv_dhuhr_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ظهر: ۱۲:۱۷"
+            android:textSize="13sp"
+            android:textColor="#FFC107"
+            android:layout_marginHorizontal="8dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/times_row_2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="4dp">
+
+        <TextView
+            android:id="@+id/tv_asr_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="عصر: ۱۵:۳۸"
+            android:textSize="13sp"
+            android:textColor="#FF5722"
+            android:layout_marginHorizontal="8dp" />
+
+        <TextView
+            android:id="@+id/tv_maghrib_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="غروب: ۱۸:۱۵"
+            android:textSize="13sp"
+            android:textColor="#9C27B0"
+            android:layout_marginHorizontal="8dp" />
+
+        <TextView
+            android:id="@+id/tv_isha_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="عشاء: ۱۹:۴۵"
+            android:textSize="13sp"
+            android:textColor="#673AB7"
+            android:layout_marginHorizontal="8dp" />
+    </LinearLayout>
+</LinearLayout>

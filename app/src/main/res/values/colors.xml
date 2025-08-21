@@ -1,10 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- رنگ‌های اصلی -->
+    <color name="primary">#2E7D32</color>
+    <color name="primary_variant">#1B5E20</color>
+    <color name="secondary">#FF8F00</color>
+    <color name="secondary_variant">#E65100</color>
+
+    <!-- رنگ‌های پس‌زمینه -->
+    <color name="background">#FAFAFA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F5F5F5</color>
+
+    <!-- رنگ‌های متن -->
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_secondary">#000000</color>
+    <color name="on_background">#212121</color>
+    <color name="on_surface">#212121</color>
+    <color name="on_surface_variant">#757575</color>
+
+    <!-- رنگ‌های خطا -->
+    <color name="error">#D32F2F</color>
+    <color name="error_container">#FFEBEE</color>
+    <color name="on_error">#FFFFFF</color>
+    <color name="on_error_container">#B71C1C</color>
+
+    <!-- رنگ‌های موفقیت -->
+    <color name="success">#388E3C</color>
+    <color name="success_container">#E8F5E8</color>
+    <color name="on_success">#FFFFFF</color>
+    <color name="on_success_container">#1B5E20</color>
+
+    <!-- رنگ‌های هشدار -->
+    <color name="warning">#F57C00</color>
+    <color name="warning_container">#FFF3E0</color>
+    <color name="on_warning">#FFFFFF</color>
+    <color name="on_warning_container">#E65100</color>
+
+    <!-- رنگ‌های تقویم -->
+    <color name="calendar_today">#4CAF50</color>
+    <color name="calendar_selected">#81C784</color>
+    <color name="calendar_weekend">#FF5722</color>
+    <color name="calendar_other_month">#BDBDBD</color>
+
+    <!-- رنگ‌های اوقات شرعی -->
+    <color name="prayer_fajr">#3F51B5</color>
+    <color name="prayer_sunrise">#FF9800</color>
+    <color name="prayer_dhuhr">#FFC107</color>
+    <color name="prayer_asr">#FF5722</color>
+    <color name="prayer_maghrib">#9C27B0</color>
+    <color name="prayer_isha">#673AB7</color>
+
+    <!-- رنگ‌های شفاف -->
+    <color name="transparent">#00000000</color>
+    <color name="semi_transparent_black">#80000000</color>
+    <color name="semi_transparent_white">#80FFFFFF</color>
+
+    <!-- رنگ‌های سایه -->
+    <color name="shadow_light">#1A000000</color>
+    <color name="shadow_medium">#33000000</color>
+    <color name="shadow_dark">#4D000000</color>
+
+    <!-- رنگ‌های حالت تاریک -->
+    <color name="dark_primary">#66BB6A</color>
+    <color name="dark_primary_variant">#388E3C</color>
+    <color name="dark_secondary">#FFB74D</color>
+    <color name="dark_background">#121212</color>
+    <color name="dark_surface">#1E1E1E</color>
+    <color name="dark_on_primary">#000000</color>
+    <color name="dark_on_secondary">#000000</color>
+    <color name="dark_on_background">#FFFFFF</color>
+    <color name="dark_on_surface">#FFFFFF</color>
+
+    <!-- رنگ‌های اضافی -->
+    <color name="divider">#E0E0E0</color>
+    <color name="ripple">#1A000000</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="card_elevation">#0D000000</color>
 </resources>

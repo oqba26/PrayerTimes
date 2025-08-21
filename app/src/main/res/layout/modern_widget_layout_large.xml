@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@android:color/transparent"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <!-- 🕒 ساعت -->
+        <TextView
+            android:id="@+id/tv_clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="۱۴:۲۵"
+            android:textSize="28sp"
+            android:textColor="#004D40"
+            android:textStyle="bold" />
+
+        <!-- 📅 تاریخ شمسی -->
+        <TextView
+            android:id="@+id/tv_persian_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="جمعه ۲۳ شهریور ۱۴۰۴"
+            android:textColor="#333"
+            android:textSize="18sp"
+            android:layout_marginTop="6dp"/>
+
+        <!-- قمری | میلادی -->
+        <TextView
+            android:id="@+id/tv_hg_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="۱۰ صفر ۱۴۴۶ | ۳۰ آگوست ۲۰۲۵"
+            android:textColor="#666"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp"/>
+
+        <!-- خط جداکننده -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#DDD"
+            android:layout_marginVertical="12dp" />
+
+        <!-- 🕌 اوقات نماز -->
+        <LinearLayout
+            android:id="@+id/times_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:id="@+id/tv_fajr_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="طلوع بامداد: ۰۴:۳۰"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_sunrise_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="طلوع خورشید: ۰۵:۵۰"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_dhuhr_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ظهر: ۱۲:۱۰"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_asr_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="عصر: ۱۵:۴۰"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_maghrib_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="غروب: ۱۸:۱۰"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_isha_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="عشاء: ۱۹:۳۰"
+                android:textSize="14sp" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>
