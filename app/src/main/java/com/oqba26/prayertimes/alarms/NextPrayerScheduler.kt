@@ -1,7 +1,8 @@
 package com.oqba26.prayertimes.alarms
 
-import PrayerForegroundService
+
 import android.app.PendingIntent
+import com.oqba26.prayertimes.services.PrayerForegroundService
 import android.content.Context
 import android.content.Intent
 import android.os.Build
