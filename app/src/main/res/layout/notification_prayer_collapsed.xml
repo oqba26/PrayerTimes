@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_collapsed"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:orientation="vertical"
+    android:gravity="start"
+    android:layoutDirection="rtl">
+
+    <LinearLayout
+        android:id="@+id/header_row_collapsed"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="start"
+        android:layoutDirection="rtl">
+
+        <ImageView
+            android:id="@+id/iv_day_collapsed"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:contentDescription="@string/app_name" />
+
+        <TextView
+            android:layout_width="8dp"
+            android:layout_height="match_parent" />
+
+        <TextView
+            android:id="@+id/tv_collapsed_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:gravity="start"
+            android:textAlignment="viewStart"
+            android:textDirection="rtl" />
+    </LinearLayout>
+
+    <!-- خط جداکننده زیر تاریخ شمسی -->
+    <TextView
+        android:id="@+id/divider_collapsed_1"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:background="#1F000000" />
+
+    <TextView
+        android:id="@+id/tv_collapsed_next"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:gravity="start"
+        android:textAlignment="viewStart"
+        android:textDirection="rtl" />
+</LinearLayout>
