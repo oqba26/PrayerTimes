@@ -73,14 +73,19 @@ class ModernWidgetProvider : AppWidgetProvider() {
             "عشاء" to R.id.tv_isha_time
         )
 
-        val highlightColor = 0xFFFFFFFF.toInt() // White for highlight
-        val defaultColor = 0xFFB2DFDB.toInt()   // A light teal/gray for default
+        val highlightColor = 0xFF0D47A1.toInt() // Dark Blue for highlight
+        val defaultColor = 0xFF004D40.toInt()   // Dark Green for default
 
         prayerTextViews.forEach { (name, id) ->
             val text = "${name.replace("طلوع ", "")}: ${prayers[name] ?: "--:--"}"
-            views.setTextViewText(id, text)
-            val color = if (name == highlightedPrayer) highlightColor else defaultColor
-            views.setTextColor(id, color)
+            if (name == highlightedPrayer) {
+                val boldText = "<b>$text</b>"
+                views.setTextViewText(id, android.text.Html.fromHtml(boldText, android.text.Html.FROM_HTML_MODE_LEGACY))
+                views.setTextColor(id, highlightColor)
+            } else {
+                views.setTextViewText(id, text)
+                views.setTextColor(id, defaultColor)
+            }
         }
 
         // کلیک روی ویجت → باز کردن اپ
