@@ -78,3 +78,14 @@ fun MultiDate.getShamsiDayOfWeekIndex(): Int {
     val calendar = Calendar.getInstance().apply { set(gy, gm - 1, gd) }
     return calendar.get(Calendar.DAY_OF_WEEK) % 7
 }
+
+fun MultiDate.getFormattedShamsiDateForWidget(): String {
+    val (year, month, day) = this.getShamsiParts()
+    val dayName = getWeekDayName(this)
+    val monthName = getPersianMonthName(month)
+
+    val yearInFarsi = convertToPersianNumbers(year.toString())
+    val dayInFarsi = convertToPersianNumbers(day.toString())
+
+    return "$dayName $dayInFarsi $monthName $yearInFarsi"
+}

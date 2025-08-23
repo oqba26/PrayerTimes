@@ -38,47 +38,25 @@ class ClockUpdateService : Service() {
         runnable = object : Runnable {
             override fun run() {
                 try {
-                    val manager = AppWidgetManager.getInstance(this@ClockUpdateService)
-                    val ids = manager.getAppWidgetIds(ComponentName(this@ClockUpdateService, ModernWidgetProvider::class.java))
-
-                    val date = getCurrentDate()
-                    val prayerTimes = loadPrayerTimesSync(this@ClockUpdateService, date)
-                    val now = LocalTime.now().format(formatter)
-
-                    ids.forEach { widgetId ->
-                        val views = RemoteViews(packageName, R.layout.modern_widget_layout)
-
-                        // 🕒 ساعت با ثانیه
-                        views.setTextViewText(R.id.tv_clock, convertToPersianNumbers(now))
-
-                        // 📆 تاریخ امروز (دقیق)
-                        views.setTextViewText(R.id.tv_persian_date, date.getDisplayShamsi())
-
-                        // قمری | میلادی
-                        val hgText = buildHijriGregorianText(date)
-                        views.setTextViewText(R.id.tv_hg_date, hgText)
-
-                        // 🕌 اوقات شرعی واقعی
-                        views.setTextViewText(R.id.tv_fajr_time, "بامداد: ${prayerTimes["طلوع بامداد"] ?: "--:--"}")
-                        views.setTextViewText(R.id.tv_sunrise_time, "خورشید: ${prayerTimes["طلوع خورشید"] ?: "--:--"}")
-                        views.setTextViewText(R.id.tv_dhuhr_time, "ظهر: ${prayerTimes["ظهر"] ?: "--:--"}")
-                        views.setTextViewText(R.id.tv_asr_time, "عصر: ${prayerTimes["عصر"] ?: "--:--"}")
-                        views.setTextViewText(R.id.tv_maghrib_time, "غروب: ${prayerTimes["غروب"] ?: "--:--"}")
-                        views.setTextViewText(R.id.tv_isha_time, "عشاء: ${prayerTimes["عشاء"] ?: "--:--"}")
-
-                        manager.updateAppWidget(widgetId, views)
-                        ModernWidgetProvider().requestManualWidgetUpdate(this@ClockUpdateService)
+                    // فقط یک سیگنال آپدیت به Provider ارسال کن
+                    val intent = Intent(this@ClockUpdateService, ModernWidgetProvider::class.java).apply {
+                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                     }
+                    val ids = AppWidgetManager.getInstance(applicationContext)
+                        .getAppWidgetIds(ComponentName(applicationContext, ModernWidgetProvider::class.java))
 
+                    if (ids.isNotEmpty()) {
+                        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                        sendBroadcast(intent)
+                    }
                 } catch (e: Exception) {
-                    Log.e("ClockUpdateService", "خطا در آپدیت ویجت", e)
+                    Log.e("ClockUpdateService", "Error in widget update runnable", e)
                 }
 
-                // 🔁 هر 10 ثانیه تکرار کن
-                handler.postDelayed(this, 10_000)
+                // هر 1 ثانیه تکرار کن
+                handler.postDelayed(this, 1000)
             }
         }
-
         handler.post(runnable)
     }
 
