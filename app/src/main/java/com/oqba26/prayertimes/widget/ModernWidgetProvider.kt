@@ -55,20 +55,33 @@ class ModernWidgetProvider : AppWidgetProvider() {
         views.setTextColor(R.id.tv_clock, 0xFF004D40.toInt())
 
         // تاریخ‌ها
-        views.setTextViewText(R.id.tv_persian_date, date.getDisplayShamsi())
+        views.setTextViewText(R.id.tv_persian_date, date.getFormattedShamsiDateForWidget())
 
         val hijri = date.hijriParts()
         val greg = date.gregorianParts()
         val hgText = "${hijri.third} ${hijri.second} ${hijri.first} | ${greg.first} ${greg.second} ${greg.third}"
         views.setTextViewText(R.id.tv_hg_date, hgText)
 
-        // زمان‌های نماز
-        views.setTextViewText(R.id.tv_fajr_time, "بامداد: ${prayers["طلوع بامداد"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_sunrise_time, "خورشید: ${prayers["طلوع خورشید"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_dhuhr_time, "ظهر: ${prayers["ظهر"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_asr_time, "عصر: ${prayers["عصر"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_maghrib_time, "غروب: ${prayers["غروب"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_isha_time, "عشاء: ${prayers["عشاء"] ?: "--:--"}")
+        // هایلایت کردن نماز فعلی
+        val highlightedPrayer = getCurrentPrayerForHighlight(prayers, now)
+        val prayerTextViews = mapOf(
+            "طلوع بامداد" to R.id.tv_fajr_time,
+            "طلوع خورشید" to R.id.tv_sunrise_time,
+            "ظهر" to R.id.tv_dhuhr_time,
+            "عصر" to R.id.tv_asr_time,
+            "غروب" to R.id.tv_maghrib_time,
+            "عشاء" to R.id.tv_isha_time
+        )
+
+        val highlightColor = 0xFFFFFFFF.toInt() // White for highlight
+        val defaultColor = 0xFFB2DFDB.toInt()   // A light teal/gray for default
+
+        prayerTextViews.forEach { (name, id) ->
+            val text = "${name.replace("طلوع ", "")}: ${prayers[name] ?: "--:--"}"
+            views.setTextViewText(id, text)
+            val color = if (name == highlightedPrayer) highlightColor else defaultColor
+            views.setTextColor(id, color)
+        }
 
         // کلیک روی ویجت → باز کردن اپ
         val intent = Intent(context, MainActivity::class.java).apply {

@@ -361,3 +361,21 @@ fun getWeekDayName(date: MultiDate): String {
         else -> ""
     }
 }
+
+fun getPreviousDate(currentDate: MultiDate): MultiDate {
+    val parts = currentDate.gregorian.split("/")
+    val cal = Calendar.getInstance().apply {
+        set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
+        add(Calendar.DAY_OF_MONTH, -1)
+    }
+    return convertCalendarToMultiDate(cal)
+}
+
+fun getNextDate(currentDate: MultiDate): MultiDate {
+    val parts = currentDate.gregorian.split("/")
+    val cal = Calendar.getInstance().apply {
+        set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
+        add(Calendar.DAY_OF_MONTH, 1)
+    }
+    return convertCalendarToMultiDate(cal)
+}
