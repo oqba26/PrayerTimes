@@ -28,16 +28,6 @@ fun CalendarScreen(
     val today = remember { getCurrentDate() }
     val isToday = currentDate.shamsi == today.shamsi
 
-    val tick = remember { mutableStateOf(0L) }
-    LaunchedEffect(isToday) {
-        if (isToday) {
-            while (true) {
-                tick.value = System.currentTimeMillis()
-                delay(50_000)
-            }
-        }
-    }
-
     var showDatePicker by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {

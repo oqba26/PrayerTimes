@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import com.oqba26.prayertimes.utils.convertToPersianNumbers
+import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -20,8 +21,17 @@ fun PrayerTimesList(
     // ترتیب صحیح نمازها مطابق تصویر
     val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
 
-    val currentPrayer = remember(System.currentTimeMillis(), prayerTimes) {
-        getNextPrayerName(prayerTimes)
+    var currentTime by remember { mutableStateOf(LocalTime.now()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime = LocalTime.now()
+            delay(30_000) // Update every 30 seconds
+        }
+    }
+
+    val currentPrayer = remember(currentTime, prayerTimes) {
+        getNextPrayerName(prayerTimes, currentTime)
     }
 
     Column(
@@ -69,15 +79,20 @@ fun PrayerTimesList(
     }
 }
 
-fun getNextPrayerName(prayers: Map<String, String>): String? {
+fun getNextPrayerName(prayers: Map<String, String>, now: LocalTime): String? {
     val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-    val now = LocalTime.now()
-    val formatter = DateTimeFormatter.ofPattern("H:mm")
+    val formatter = DateTimeFormatter.ofPattern("HH:mm")
 
     return order.firstOrNull { name ->
-        val raw = prayers[name]?.trim()?.padStart(5, '0') ?: return@firstOrNull false
+        val raw = prayers[name]?.trim()
+        if (raw.isNullOrEmpty()) return@firstOrNull false
+
         runCatching {
-            val time = LocalTime.parse(raw, formatter)
+            val parts = raw.split(':')
+            if (parts.size != 2) return@runCatching false
+
+            val formattedTime = "${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}"
+            val time = LocalTime.parse(formattedTime, formatter)
             now < time
         }.getOrElse { false }
     }
