@@ -4,9 +4,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.oqba26.prayertimes.models.MultiDate
-import com.oqba26.prayertimes.utils.getCurrentDate
-import com.oqba26.prayertimes.utils.getCurrentPrayerNameFixed
-import com.oqba26.prayertimes.utils.loadPrayerTimes
+import com.oqba26.prayertimes.utils.DateUtils.getCurrentDate
+import com.oqba26.prayertimes.utils.PrayerUtils.getCurrentPrayerNameFixed
+import com.oqba26.prayertimes.utils.PrayerUtils.loadPrayerTimes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

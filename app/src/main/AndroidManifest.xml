@@ -64,11 +64,7 @@
                 android:resource="@xml/modern_widget_info" />
         </receiver>
 
-        <service
-            android:name=".services.ClockUpdateService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync"/>
+
 
     </application>
 
@@ -82,6 +78,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+
 
 
 </manifest>

@@ -1,21 +1,25 @@
 package com.oqba26.prayertimes.screens.widgets
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.sp
 import com.oqba26.prayertimes.models.MultiDate
-import com.oqba26.prayertimes.utils.*
+import com.oqba26.prayertimes.utils.DateUtils
+import com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers
+import com.oqba26.prayertimes.utils.DateUtils.getPersianMonthName
+import com.oqba26.prayertimes.utils.DateUtils.getWeekDayName
 
 @Composable
 fun DayHeaderBar(
@@ -26,56 +30,70 @@ fun DayHeaderBar(
     val shamsi = date.getShamsiParts()
     val hijri = date.hijriParts()
     val greg = date.gregorianParts()
-    val weekDay = getWeekDayName(date)
+    val weekDay = remember(date) { getWeekDayName(date) }
+
+    var isShortFormat by remember { mutableStateOf(false) }
+    val slash = " / "
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF00ACC1))
-            .padding(vertical = 8.dp)
-            .height(60.dp)
+            .height(56.dp) // ارتفاع مناسب‌تر
+            .clickable { isShortFormat = !isShortFormat } // کلیک روی هدر = تغییر حالت
     ) {
-        // محتوای مرکزی
         Column(
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = 80.dp), // افزایش فاصله برای دکمه‌ها
+                .padding(horizontal = 60.dp), // فضای خالی سمت چپ/راست برای دکمه‌ها
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // خط اول: روز هفته و تاریخ شمسی
+            // خط اول: روز هفته + تاریخ شمسی
             Text(
-                text = "$weekDay ${convertToPersianNumbers(shamsi.third.toString())} ${getPersianMonthName(shamsi.second)} ${convertToPersianNumbers(shamsi.first.toString())}",
+                text = if (isShortFormat) {
+                    "$weekDay ${convertToPersianNumbers(shamsi.third.toString())}$slash" +
+                            "${convertToPersianNumbers(shamsi.second.toString())}$slash" +
+                            "${convertToPersianNumbers(shamsi.first.toString())}"
+                } else {
+                    "$weekDay ${convertToPersianNumbers(shamsi.third.toString())} " +
+                            "${getPersianMonthName(shamsi.second)} " +
+                            "${convertToPersianNumbers(shamsi.first.toString())}"
+                },
                 color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(2.dp))
 
-            // خط دوم: تاریخ‌های هجری و میلادی افقی
+            // خط دوم: قمری و میلادی
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
+                Row(horizontalArrangement = Arrangement.Center) {
                     Text(
-                        text = "${hijri.third} ${hijri.second} ${hijri.first}",
+                        text = if (isShortFormat) {
+                            val parts = date.hijri.split("/")
+                            "${convertToPersianNumbers(parts[2])}$slash" +
+                                    "${convertToPersianNumbers(parts[1])}$slash" +
+                                    "${convertToPersianNumbers(parts[0])}"
+                        } else {
+                            "${hijri.third} ${hijri.second} ${hijri.first}"
+                        },
                         color = Color.White,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
+                        fontSize = 13.sp
                     )
+                    Text(" | ", color = Color.White, fontSize = 13.sp)
                     Text(
-                        text = " | ",
+                        text = if (isShortFormat) {
+                            val parts = date.gregorian.split("/")
+                            "${convertToPersianNumbers(parts[2])}$slash" +
+                                    "${convertToPersianNumbers(parts[1])}$slash" +
+                                    "${convertToPersianNumbers(parts[0])}"
+                        } else {
+                            "${greg.first} ${greg.second} ${greg.third}"
+                        },
                         color = Color.White,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "${greg.first} ${greg.second} ${greg.third}",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
+                        fontSize = 13.sp
                     )
                 }
             }
@@ -86,10 +104,9 @@ fun DayHeaderBar(
             onClick = onNextDay,
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 16.dp)
-                .size(36.dp)
+                .size(32.dp)
         ) {
-            Text("‹", fontSize = 18.sp, color = Color.White, textAlign = TextAlign.Center)
+            Text("‹", fontSize = 16.sp, color = Color.White)
         }
 
         // دکمه روز قبل ← سمت چپ
@@ -97,10 +114,9 @@ fun DayHeaderBar(
             onClick = onPreviousDay,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 16.dp)
-                .size(36.dp)
+                .size(32.dp)
         ) {
-            Text("›", fontSize = 18.sp, color = Color.White, textAlign = TextAlign.Center)
+            Text("›", fontSize = 16.sp, color = Color.White)
         }
     }
 }

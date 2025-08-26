@@ -1,60 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.PrayerTimes" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <!-- Primary colors -->
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryDark">@color/primary_variant</item>
-        <item name="colorAccent">@color/secondary</item>
+    <style name="Theme.PrayerTimes" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- رنگ‌ها و سایر استایل‌ها -->
+        <item name="colorPrimary">@color/md_theme_light_primary</item>
+        <item name="colorPrimaryVariant">@color/md_theme_light_primary_variant</item>
+        <item name="colorOnPrimary">@color/md_theme_light_onPrimary</item>
+        <item name="colorSecondary">@color/md_theme_light_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_light_onSecondary</item>
 
-        <!-- Background colors -->
-        <item name="android:colorBackground">@color/background</item>
-        <item name="android:windowBackground">@color/background</item>
+        <!-- بجای android:paddingVertical که نیاز به API 26 دارد از separate padding top و bottom استفاده کن -->
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
 
-        <!-- Status bar -->
-        <item name="android:statusBarColor">@color/primary</item>
-    </style>
-
-    <!-- Text styles -->
-    <style name="HeadlineText">
-        <item name="android:textSize">24sp</item>
-        <item name="android:textColor">@color/on_background</item>
-        <item name="android:textStyle">bold</item>
-    </style>
-
-    <style name="BodyText">
-        <item name="android:textSize">16sp</item>
-        <item name="android:textColor">@color/on_surface</item>
-    </style>
-
-    <style name="SmallText">
-        <item name="android:textSize">14sp</item>
-        <item name="android:textColor">@color/on_surface_variant</item>
-    </style>
-
-    <!-- Card style -->
-    <style name="PrayerCard">
-        <item name="android:background">@color/card_background</item>
-        <item name="android:elevation" tools:targetApi="21">4dp</item>
-        <item name="android:padding">16dp</item>
-        <item name="android:layout_marginTop">8dp</item>
-        <item name="android:layout_marginBottom">8dp</item>
-    </style>
-
-    <!-- Button style -->
-    <style name="PrimaryButton">
-        <item name="android:background">@color/primary</item>
-        <item name="android:textColor">@color/on_primary</item>
-        <item name="android:padding">12dp</item>
-        <item name="android:textStyle">bold</item>
-        <item name="android:textSize">16sp</item>
-    </style>
-
-    <!-- Calendar day style -->
-    <style name="CalendarDay">
-        <item name="android:layout_width">40dp</item>
-        <item name="android:layout_height">40dp</item>
-        <item name="android:gravity">center</item>
-        <item name="android:textSize">14sp</item>
-        <item name="android:textColor">@color/on_surface</item>
+        <!-- سایر تنظیمات لازم -->
     </style>
 </resources>

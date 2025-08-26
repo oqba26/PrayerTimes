@@ -11,9 +11,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven("https://jitpack.io")
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
+
 rootProject.name = "PrayerTimes"
-include(":app")
+include(":app", ":PersianDate")
+project(":PersianDate").projectDir = file("PersianDate")
+

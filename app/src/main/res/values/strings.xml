@@ -1,87 +1,30 @@
 <resources>
-    <!-- نام اپلیکیشن -->
-    <string name="app_name">تقویم و اوقات شرعی</string>
+    <string name="app_name">اوقات شرعی</string>
+    <string name="widget_label">ویجت اوقات شرعی</string>
 
-    <!-- عناوین صفحات -->
-    <string name="calendar_title">تقویم</string>
-    <string name="prayer_times_title">اوقات شرعی</string>
+    <string name="widget_error_loading">خطا در بارگذاری اطلاعات</string>
+    <string name="widget_error_loading_prayers">اوقات شرعی یافت نشد</string>
 
-    <!-- نام‌های اوقات شرعی -->
-    <string name="fajr">طلوع بامداد</string>
-    <string name="sunrise">طلوع خورشید</string>
-    <string name="dhuhr">ظهر</string>
-    <string name="asr">عصر</string>
-    <string name="maghrib">غروب</string>
-    <string name="isha">عشاء</string>
+    <!-- پیشوندهای نام نماز برای ویجت -->
+    <string name="prayer_prefix_fajr">بامداد</string>
+    <string name="prayer_prefix_sunrise">طلوع</string>
+    <string name="prayer_prefix_dhuhr">ظهر</string>
+    <string name="prayer_prefix_asr">عصر</string>
+    <string name="prayer_prefix_maghrib">مغرب</string>
+    <string name="prayer_prefix_isha">عشاء</string>
 
-    <!-- نام‌های تاریخ -->
-    <string name="shamsi_date">شمسی</string>
-    <string name="hijri_date">قمری</string>
-    <string name="gregorian_date">میلادی</string>
+    <!-- کلیدهای نام نماز (مطابق با آنچه در PrayerUtils و فایل JSON شما استفاده می‌شود) -->
+    <string name="prayer_key_fajr">طلوع بامداد</string>
+    <string name="prayer_key_sunrise">طلوع خورشید</string>
+    <string name="prayer_key_dhuhr">ظهر</string>
+    <string name="prayer_key_asr">عصر</string>
+    <string name="prayer_key_maghrib">غروب</string> <!-- یا "غروب آفتاب" اگر در JSON شما اینطور است -->
+    <string name="prayer_key_isha">عشاء</string>
 
-    <!-- پیام‌های خطا -->
-    <string name="error_loading_data">خطا در بارگذاری داده‌ها</string>
-    <string name="error_no_data">اوقات شرعی برای این تاریخ موجود نیست</string>
-    <string name="error_network">خطا در اتصال به اینترنت</string>
-    <string name="error_permission">مجوز مورد نیاز داده نشده</string>
+    <!-- رشته‌های مربوط به نوتیفیکیشن سرویس به‌روزرسانی ساعت ویجت -->
+    <string name="clock_update_service_channel_name">سرویس به‌روزرسان ساعت ویجت</string>
+    <string name="clock_update_service_channel_description">برای فعال نگه داشتن به‌روزرسانی ساعت ویجت</string>
+    <string name="widget_clock_notification_title">ویجت اوقات شرعی</string>
+    <string name="widget_clock_notification_text">ساعت ویجت فعال و در حال به‌روزرسانی است.</string>
 
-    <!-- دکمه‌ها -->
-    <string name="retry">تلاش مجدد</string>
-    <string name="refresh">بروزرسانی</string>
-    <string name="today">امروز</string>
-    <string name="ok">تأیید</string>
-    <string name="cancel">لغو</string>
-
-    <!-- نوتیفیکیشن -->
-    <string name="notification_channel_name">اوقات شرعی</string>
-    <string name="notification_channel_description">نوتیفیکیشن‌های اوقات نماز</string>
-    <string name="notification_prayer_time">وقت %1$s</string>
-    <string name="notification_prayer_content">ساعت %1$s</string>
-    <string name="notification_daily_reminder">یادآوری روزانه</string>
-    <string name="notification_daily_content">اوقات شرعی امروز را بررسی کنید</string>
-
-    <!-- نام‌های ماه‌های شمسی -->
-    <string name="farvardin">فروردین</string>
-    <string name="ordibehesht">اردیبهشت</string>
-    <string name="khordad">خرداد</string>
-    <string name="tir">تیر</string>
-    <string name="mordad">مرداد</string>
-    <string name="shahrivar">شهریور</string>
-    <string name="mehr">مهر</string>
-    <string name="aban">آبان</string>
-    <string name="azar">آذر</string>
-    <string name="dey">دی</string>
-    <string name="bahman">بهمن</string>
-    <string name="esfand">اسفند</string>
-
-    <!-- نام‌های روزهای هفته -->
-    <string name="saturday_short">ش</string>
-    <string name="sunday_short">ی</string>
-    <string name="monday_short">د</string>
-    <string name="tuesday_short">س</string>
-    <string name="wednesday_short">چ</string>
-    <string name="thursday_short">پ</string>
-    <string name="friday_short">ج</string>
-
-    <!-- پیام‌های وضعیت -->
-    <string name="loading">در حال بارگذاری...</string>
-    <string name="no_internet">اتصال اینترنت موجود نیست</string>
-    <string name="data_updated">داده‌ها بروزرسانی شد</string>
-
-    <!-- تنظیمات -->
-    <string name="settings">تنظیمات</string>
-    <string name="notifications">نوتیفیکیشن‌ها</string>
-    <string name="enable_notifications">فعال‌سازی نوتیفیکیشن‌ها</string>
-    <string name="notification_sound">صدای نوتیفیکیشن</string>
-
-    <!-- درباره -->
-    <string name="about">درباره</string>
-    <string name="version">نسخه</string>
-    <string name="developer">توسعه‌دهنده</string>
-
-    <!-- مجوزها -->
-    <string name="permission_notification_title">مجوز نوتیفیکیشن</string>
-    <string name="permission_notification_message">برای دریافت یادآوری اوقات نماز، مجوز نوتیفیکیشن را فعال کنید</string>
-    <string name="permission_alarm_title">مجوز آلارم</string>
-    <string name="permission_alarm_message">برای تنظیم یادآوری دقیق اوقات نماز، مجوز آلارم را فعال کنید</string>
 </resources>

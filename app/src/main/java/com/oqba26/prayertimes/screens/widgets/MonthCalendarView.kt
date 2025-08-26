@@ -17,6 +17,11 @@ import androidx.compose.ui.unit.*
 import androidx.compose.ui.unit.LayoutDirection
 import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.utils.*
+import com.oqba26.prayertimes.utils.DateUtils.convertPersianToGregorian
+import com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers
+import com.oqba26.prayertimes.utils.DateUtils.createMultiDateFromShamsi
+import com.oqba26.prayertimes.utils.DateUtils.daysInShamsiMonth
+import com.oqba26.prayertimes.utils.DateUtils.getPersianMonthName
 import java.util.*
 
 @Composable

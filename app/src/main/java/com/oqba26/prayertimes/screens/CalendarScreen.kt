@@ -13,6 +13,9 @@ import androidx.compose.ui.unit.dp
 import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.screens.widgets.*
 import com.oqba26.prayertimes.utils.*
+import com.oqba26.prayertimes.utils.DateUtils.getCurrentDate
+import com.oqba26.prayertimes.utils.DateUtils.getNextDate
+import com.oqba26.prayertimes.utils.DateUtils.getPreviousDate
 import com.oqba26.prayertimes.viewmodels.PrayerViewModel
 import kotlinx.coroutines.delay
 

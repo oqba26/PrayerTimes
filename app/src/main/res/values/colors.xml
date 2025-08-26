@@ -1,79 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- رنگ‌های اصلی -->
-    <color name="primary">#2E7D32</color>
-    <color name="primary_variant">#1B5E20</color>
-    <color name="secondary">#FF8F00</color>
-    <color name="secondary_variant">#E65100</color>
-
-    <!-- رنگ‌های پس‌زمینه -->
-    <color name="background">#FAFAFA</color>
-    <color name="surface">#FFFFFF</color>
-    <color name="surface_variant">#F5F5F5</color>
-
-    <!-- رنگ‌های متن -->
-    <color name="on_primary">#FFFFFF</color>
-    <color name="on_secondary">#000000</color>
-    <color name="on_background">#212121</color>
-    <color name="on_surface">#212121</color>
-    <color name="on_surface_variant">#757575</color>
-
-    <!-- رنگ‌های خطا -->
-    <color name="error">#D32F2F</color>
-    <color name="error_container">#FFEBEE</color>
-    <color name="on_error">#FFFFFF</color>
-    <color name="on_error_container">#B71C1C</color>
-
-    <!-- رنگ‌های موفقیت -->
-    <color name="success">#388E3C</color>
-    <color name="success_container">#E8F5E8</color>
-    <color name="on_success">#FFFFFF</color>
-    <color name="on_success_container">#1B5E20</color>
-
-    <!-- رنگ‌های هشدار -->
-    <color name="warning">#F57C00</color>
-    <color name="warning_container">#FFF3E0</color>
-    <color name="on_warning">#FFFFFF</color>
-    <color name="on_warning_container">#E65100</color>
-
-    <!-- رنگ‌های تقویم -->
-    <color name="calendar_today">#4CAF50</color>
-    <color name="calendar_selected">#81C784</color>
-    <color name="calendar_weekend">#FF5722</color>
-    <color name="calendar_other_month">#BDBDBD</color>
-
-    <!-- رنگ‌های اوقات شرعی -->
-    <color name="prayer_fajr">#3F51B5</color>
-    <color name="prayer_sunrise">#FF9800</color>
-    <color name="prayer_dhuhr">#FFC107</color>
-    <color name="prayer_asr">#FF5722</color>
-    <color name="prayer_maghrib">#9C27B0</color>
-    <color name="prayer_isha">#673AB7</color>
-
-    <!-- رنگ‌های شفاف -->
-    <color name="transparent">#00000000</color>
-    <color name="semi_transparent_black">#80000000</color>
-    <color name="semi_transparent_white">#80FFFFFF</color>
-
-    <!-- رنگ‌های سایه -->
-    <color name="shadow_light">#1A000000</color>
-    <color name="shadow_medium">#33000000</color>
-    <color name="shadow_dark">#4D000000</color>
-
-    <!-- رنگ‌های حالت تاریک -->
-    <color name="dark_primary">#66BB6A</color>
-    <color name="dark_primary_variant">#388E3C</color>
-    <color name="dark_secondary">#FFB74D</color>
-    <color name="dark_background">#121212</color>
-    <color name="dark_surface">#1E1E1E</color>
-    <color name="dark_on_primary">#000000</color>
-    <color name="dark_on_secondary">#000000</color>
-    <color name="dark_on_background">#FFFFFF</color>
-    <color name="dark_on_surface">#FFFFFF</color>
-
-    <!-- رنگ‌های اضافی -->
-    <color name="divider">#E0E0E0</color>
-    <color name="ripple">#1A000000</color>
-    <color name="card_background">#FFFFFF</color>
-    <color name="card_elevation">#0D000000</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <!-- رنگ‌های مورد استفاده در ویجت -->
+    <color name="widget_text_normal">#333333</color> <!-- رنگ عادی متن اوقات نماز -->
+    <color name="widget_text_highlight">#004D40
+    </color> <!-- رنگ هایلایت برای نماز بعدی (همرنگ ساعت) -->
+    <color name="widget_text_time_header">#004D40</color> <!-- رنگ ساعت -->
+    <color name="widget_text_date_shamsi">#0E7490</color> <!-- رنگ تاریخ شمسی -->
+    <color name="widget_text_date_hg">#555555</color> <!-- رنگ تاریخ قمری/میلادی -->
+    <color name="widget_divider">#D0D0D0</color> <!-- رنگ جداکننده -->
+    <color name="widget_error_text">#D32F2F</color> <!-- رنگ متن خطا -->
+    <!-- رنگ‌های اصلی که در لایوت قبلی شما برای هر نماز بود (برای مرجع، فعلا استفاده نمی‌شوند) -->
+    <color name="fajr_color_original">#3F51B5</color>
+    <color name="sunrise_color_original">#FF9800</color>
+    <color name="dhuhr_color_original">#FFC107</color>
+    <color name="asr_color_original">#FF5722</color>
+    <color name="maghrib_color_original">#9C27B0</color>
+    <color name="isha_color_original">#673AB7</color>
+    <!-- رنگ‌های تم روشن -->
+    <color name="md_theme_light_primary">#6750A4</color>
+    <color name="md_theme_light_primary_variant">#FFBB86FC</color>
+    <color name="md_theme_light_onPrimary">#FFFFFF</color>
+    <color name="md_theme_light_secondary">#03DAC5</color>
+    <color name="md_theme_light_onSecondary">#000000</color>
+    <color name="md_theme_light_background">#FFFFFF</color>
+    <color name="md_theme_light_surface">#FFFFFF</color>
+    <color name="md_theme_light_error">#B00020</color>
+    <color name="md_theme_light_onBackground">#000000</color>
+    <color name="md_theme_light_onSurface">#000000</color>
+    <!-- رنگ‌های تم تاریک -->
+    <color name="md_theme_dark_primary">#BB86FC</color>
+    <color name="md_theme_dark_primary_variant">#3700B3</color>
+    <color name="md_theme_dark_onPrimary">#000000</color>
+    <color name="md_theme_dark_secondary">#03DAC5</color>
+    <color name="md_theme_dark_onSecondary">#000000</color>
+    <color name="md_theme_dark_background">#121212</color>
+    <color name="md_theme_dark_surface">#121212</color>
+    <color name="md_theme_dark_error">#CF6679</color>
+    <color name="md_theme_dark_onBackground">#FFFFFF</color>
+    <color name="md_theme_dark_onSurface">#FFFFFF</color>
+    <!-- رنگ متن معمولی اوقات -->
+    <color name="prayer_text_normal">#0D47A1</color> <!-- آبی تیره -->
+    <!-- رنگ متن و پس‌زمینه وقت بعدی (هایلایت) -->
+    <color name="prayer_text_highlight">#2E7D32</color> <!-- سبز پررنگ -->
+    <color name="prayer_highlight_bg">#C8E6C9</color> <!-- سبز ملایم -->
+    <!-- رنگ هدر تاریخ -->
+    <color name="header_bg">#00ACC1</color>
+    <color name="header_text">#FFFFFF</color>
+    <!-- رنگ خط جداکننده -->
+    <color name="divider_color">#BDBDBD</color>
 </resources>

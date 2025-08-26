@@ -15,12 +15,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables { useSupportLibrary = true }
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled =
+                false // برای تولید نهایی، این را true کنید و Proguard را به دقت تنظیم کنید
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -31,7 +34,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-        // برای java.time روی API پایین‌تر
+        // برای استفاده از java.time API در تمام سطوح API
         isCoreLibraryDesugaringEnabled = true
     }
 
@@ -42,9 +45,12 @@ android {
     buildFeatures {
         compose = true
     }
+
     composeOptions {
-        // سازگار با Kotlin 1.9.10
-        kotlinCompilerExtensionVersion = "1.5.2"
+        // سازگار با Kotlin 1.9.20-1.9.23 و Compose BOM 2024.05.00
+        // اگر از نسخه Kotlin دیگری استفاده می‌کنید، این را مطابق جدول سازگاری تنظیم کنید:
+        // https://developer.android.com/jetpack/androidx/releases/compose-kotlin
+        kotlinCompilerExtensionVersion = "1.5.11"
     }
 
     packaging {
@@ -55,43 +61,65 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.glance)
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.benchmark.traceprocessor.android)
-    // Desugar برای java.time
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-
-    // Core Android
+    // Core AndroidX Libraries
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-    implementation("androidx.activity:activity-compose:1.8.2")
-    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.appcompat:appcompat:1.6.1") // برای تم‌ها و کامپوننت‌های View System
+    implementation("com.google.android.material:material:1.12.0") // برای تم‌های Material XML (MDC)
 
-    // Compose BOM (هماهنگ با Compiler 1.5.1)
-    implementation(platform("androidx.compose:compose-bom:2023.09.01"))
+    // Lifecycle
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
 
-    // Compose UI & Material3 & Icons
+    // Activity for Compose
+    implementation("androidx.activity:activity-compose:1.9.0")
+
+    // Compose Bill of Materials (BOM) - برای مدیریت هماهنگ نسخه‌های Compose
+    implementation(platform("androidx.compose:compose-bom:2024.05.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.material3:material3") // Material 3 برای Compose
+    implementation("androidx.compose.material:material-icons-extended") // آیکون‌های بیشتر برای Compose
 
-    // ViewModel, Navigation, Coroutines, JSON, WorkManager
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.navigation:navigation-compose:2.7.6")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // Navigation for Compose
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+
+    // JSON Serialization
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // WorkManager for background tasks
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    // Testing
+    implementation(project(":PersianDate"))
+
+
+
+    // Desugaring for java.time APIs
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
+    // Glance for App Widgets (با فرض استفاده از Version Catalog)
+    implementation(libs.androidx.glance)
+    implementation(libs.androidx.glance.appwidget)
+
+    // Benchmark Tracing Processor (در صورت نیاز، در غیر این صورت به debugImplementation منتقل شود)
+    // اگر از Version Catalog استفاده نمی‌کنید، نسخه را مستقیم وارد کنید، مثلا:
+    // implementation("androidx.benchmark:benchmark-tracing-processor:1.2.4")
+    implementation(libs.androidx.benchmark.traceprocessor.android)
+
+
+    // Testing Libraries
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2023.09.01"))
+
+    // AndroidTest Compose BOM (باید با BOM اصلی هماهنگ باشد)
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.05.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
-    // Debug
+    // Debug Implementation for Compose tooling
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

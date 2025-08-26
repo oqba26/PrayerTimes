@@ -15,6 +15,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.utils.*
+import com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers
+import com.oqba26.prayertimes.utils.DateUtils.getPersianMonthName
+import com.oqba26.prayertimes.utils.DateUtils.getWeekDayName
 import kotlinx.coroutines.launch
 
 @Composable

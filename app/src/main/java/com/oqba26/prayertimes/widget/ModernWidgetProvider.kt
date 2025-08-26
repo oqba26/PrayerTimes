@@ -1,109 +1,181 @@
 package com.oqba26.prayertimes.widget
 
-import android.app.*
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
-import android.content.*
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.util.Log
 import android.widget.RemoteViews
-import com.oqba26.prayertimes.MainActivity
 import com.oqba26.prayertimes.R
 import com.oqba26.prayertimes.models.MultiDate
-import com.oqba26.prayertimes.utils.*
-import kotlinx.coroutines.*
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
+import com.oqba26.prayertimes.utils.DateUtils
+import com.oqba26.prayertimes.utils.PrayerUtils
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 class ModernWidgetProvider : AppWidgetProvider() {
 
-    private val scope = CoroutineScope(Dispatchers.IO + Job())
+    companion object {
+        const val ACTION_CLOCK_TICK_UPDATE = "com.oqba26.prayertimes.ACTION_CLOCK_TICK_UPDATE"
+    }
+
+    private val scope = CoroutineScope(Dispatchers.Main)
+
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        appWidgetIds.forEach { appWidgetId ->
+            scope.launch {
+                val today = getTodayMultiDate()
+                val times = PrayerUtils.loadPrayerTimes(context, today)
+
+                updateAppWidgetWithTimes(context, appWidgetManager, appWidgetId, today, times)
+            }
+        }
+        scheduleNextUpdate(context)
+    }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-
-        // هر دقیقه آپدیت کن، برای ساعت ثانیه‌دار
-        if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, ModernWidgetProvider::class.java))
-            onUpdate(context, manager, ids)
-        }
-    }
-
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        ids.forEach { id ->
-            scope.launch {
-                updateWidget(context, manager, id)
+        if (intent.action == ACTION_CLOCK_TICK_UPDATE) {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val thisWidget = ComponentName(context, ModernWidgetProvider::class.java)
+            val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
+            allWidgetIds.forEach { appWidgetId ->
+                scope.launch {
+                    val today = getTodayMultiDate()
+                    val times = PrayerUtils.loadPrayerTimes(context, today)
+                    updateAppWidgetWithTimes(context, appWidgetManager, appWidgetId, today, times)
+                }
             }
+            scheduleNextUpdate(context)
         }
     }
 
-    private suspend fun updateWidget(
+    private fun updateAppWidgetWithTimes(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        widgetId: Int
+        appWidgetId: Int,
+        today: MultiDate,
+        times: Map<String, String>
     ) {
-        val views = RemoteViews(context.packageName, R.layout.modern_widget_layout)
+        val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+        val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+        val isLarge = minWidth >= 200 || minHeight >= 200
 
-        val now = LocalTime.now()
-        val nowText = now.format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+        val shamsiParts = today.getShamsiParts()
+        val hijriParts = today.hijriParts()
+        val gregParts = today.gregorianParts()
 
-        val date = getCurrentDate()
-        val prayers = loadPrayerTimes(context, date)
+        val weekDay = DateUtils.getWeekDayName(today)
 
-        // ساعت
-        views.setTextViewText(R.id.tv_clock, convertToPersianNumbers(nowText))
-        views.setTextColor(R.id.tv_clock, 0xFF004D40.toInt())
+        // تاریخ شمسی با روز هفته
+        val persianDate =
+            "$weekDay ${DateUtils.convertToPersianNumbers(shamsiParts.third.toString())} " +
+                    "${DateUtils.getPersianMonthName(shamsiParts.second)} " +
+                    "${DateUtils.convertToPersianNumbers(shamsiParts.first.toString())}"
 
-        // تاریخ‌ها
-        views.setTextViewText(R.id.tv_persian_date, date.getDisplayShamsi())
+        val hijriDate = "${hijriParts.third} ${hijriParts.second} ${hijriParts.first}"
+        val gregDate = "${gregParts.first} ${gregParts.second} ${gregParts.third}"
+        val hijriGregLine = "$hijriDate | $gregDate"
 
-        val hijri = date.hijriParts()
-        val greg = date.gregorianParts()
-        val hgText = "${hijri.third} ${hijri.second} ${hijri.first} | ${greg.first} ${greg.second} ${greg.third}"
-        views.setTextViewText(R.id.tv_hg_date, hgText)
+        val views = if (isLarge) {
+            val remoteViews = RemoteViews(context.packageName, R.layout.modern_widget_layout_large)
 
-        // زمان‌های نماز
-        views.setTextViewText(R.id.tv_fajr_time, "بامداد: ${prayers["طلوع بامداد"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_sunrise_time, "خورشید: ${prayers["طلوع خورشید"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_dhuhr_time, "ظهر: ${prayers["ظهر"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_asr_time, "عصر: ${prayers["عصر"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_maghrib_time, "غروب: ${prayers["غروب"] ?: "--:--"}")
-        views.setTextViewText(R.id.tv_isha_time, "عشاء: ${prayers["عشاء"] ?: "--:--"}")
+            val time = SimpleDateFormat("HH:mm", Locale("fa")).format(Date())
+            remoteViews.setTextViewText(R.id.tv_clock, DateUtils.convertToPersianNumbers(time))
 
-        // کلیک روی ویجت → باز کردن اپ
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
+            remoteViews.setTextViewText(R.id.tv_persian_date, persianDate)
+            remoteViews.setTextViewText(R.id.tv_hg_date, hijriGregLine)
 
-        val pendingIntent = PendingIntent.getActivity(
-            context, 0, intent,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            else PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+            val order = listOf("طلوع بامداد","طلوع خورشید","ظهر","عصر","غروب","عشاء")
+            val nextPrayer = PrayerUtils.getCurrentPrayerForHighlight(times, java.time.LocalTime.now())
 
-        // بروزرسانی نهایی
-        appWidgetManager.updateAppWidget(widgetId, views)
-    }
+            val prayersLine = order.joinToString(" | ") { name ->
+                val raw = DateUtils.convertToPersianNumbers(times[name] ?: "--:--")
+                if (name == nextPrayer) "<b><font color='#2E7D32'>$name: $raw</font></b>"
+                else "<font color='#0D47A1'>$name: $raw</font>"
+            }
 
-    override fun onEnabled(context: Context) {
-        val intent = Intent(context, com.oqba26.prayertimes.services.ClockUpdateService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
+// توجه: باید در فایل layout مربوط به ویجت (مثلاً modern_widget_layout_large.xml)
+// یک TextView با id="tv_prayers_line" بذاری
+            remoteViews.setTextViewText(
+                R.id.tv_prayers_line,
+                android.text.Html.fromHtml(prayersLine, android.text.Html.FROM_HTML_MODE_LEGACY)
+            )
+            remoteViews
         } else {
-            context.startService(intent)
+            RemoteViews(context.packageName, R.layout.modern_widget_layout).apply {
+                val time = SimpleDateFormat("HH:mm", Locale("fa")).format(Date())
+                setTextViewText(R.id.tv_widget_time, DateUtils.convertToPersianNumbers(time))
+                setTextViewText(R.id.tv_widget_date_shamsi, persianDate)
+                setTextViewText(R.id.tv_widget_date_hijri_gregorian, hijriGregLine)
+            }
+        }
+        appWidgetManager.updateAppWidget(appWidgetId, views)
+    }
+
+    private fun scheduleNextUpdate(context: Context) {
+        val intent = Intent(context, ModernWidgetProvider::class.java).apply {
+            action = ACTION_CLOCK_TICK_UPDATE
+            setPackage(context.packageName)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intervalMillis = 60_000L
+        val triggerAtMillis = System.currentTimeMillis() + intervalMillis
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setInexactRepeating(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis,
+                        intervalMillis,
+                        pendingIntent
+                    )
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("ModernWidgetProvider", "scheduleNextUpdate error: ${e.message}")
         }
     }
 
-    fun requestManualWidgetUpdate(context: Context) {
-        val intent = Intent(context, ModernWidgetProvider::class.java).apply {
-            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-        }
-
-        val ids = AppWidgetManager.getInstance(context)
-            .getAppWidgetIds(ComponentName(context, ModernWidgetProvider::class.java))
-        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-        context.sendBroadcast(intent)
+    private fun getTodayMultiDate(): MultiDate {
+        val calendar = Calendar.getInstance()
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH) + 1
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+        val gregorian = String.format("%d/%02d/%02d", year, month, day)
+        val shamsi = DateUtils.gregorianToJalali(year, month, day)
+        val hijri = DateUtils.convertToHijri(year, month, day)
+        return MultiDate(shamsi, hijri, gregorian)
     }
 }

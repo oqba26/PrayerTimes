@@ -1,19 +1,18 @@
 package com.oqba26.prayertimes
 
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.screens.CalendarScreen
 import com.oqba26.prayertimes.ui.theme.PrayerTimesTheme
-import com.oqba26.prayertimes.utils.getCurrentDate
+import com.oqba26.prayertimes.utils.DateUtils
+import com.oqba26.prayertimes.utils.PermissionHandler
+import com.oqba26.prayertimes.services.PrayerForegroundService
 import com.oqba26.prayertimes.viewmodels.PrayerViewModel
 
 class MainActivity : ComponentActivity() {
@@ -23,14 +22,27 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 👇 این خط واجبه اگر ViewModel از LoadData استفاده می‌کنه
+        // مجوز نمایش نوتیف – اندروید 13+
+        if (!PermissionHandler.checkNotificationPermission(this)) {
+            PermissionHandler.requestNotificationPermission(this)
+        }
+
+        // فورگراند سرویس برای نوتیف دائمی استارت می‌شه
+        val serviceIntent = Intent(this, PrayerForegroundService::class.java).apply {
+            action = "START"
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+
+        // بارگذاری دیتا
         viewModel.loadData(applicationContext)
 
+        // نمایش UI اصلی
         setContent {
-            // 👇 مدیریت حالت شب
-            var isDarkMode by remember {
-                mutableStateOf(false)
-            }
+            var isDarkMode by remember { mutableStateOf(false) }
 
             PrayerTimesTheme(darkTheme = isDarkMode) {
                 CalendarScreenEntryPoint(
@@ -49,7 +61,7 @@ fun CalendarScreenEntryPoint(
     isDarkMode: Boolean,
     onToggleDarkMode: () -> Unit
 ) {
-    var currentDate by remember { mutableStateOf(getCurrentDate()) }
+    var currentDate by remember { mutableStateOf<MultiDate>(DateUtils.getCurrentDate()) }
     val uiState = viewModel.uiState.collectAsState().value
 
     LaunchedEffect(currentDate) {
@@ -65,6 +77,3 @@ fun CalendarScreenEntryPoint(
         onToggleDarkMode = onToggleDarkMode
     )
 }
-
-
-

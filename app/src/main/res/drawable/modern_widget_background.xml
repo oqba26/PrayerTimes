@@ -1,18 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- گرادیانت زیبا -->
-    <gradient
-        android:angle="135"
-        android:startColor="#F8F9FA"
-        android:centerColor="#FFFFFF"
-        android:endColor="#F1F3F4"
-        android:type="linear" />
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
 
-    <!-- حاشیه نازک -->
+    <!-- پس‌زمینه سفید -->
+    <solid android:color="#FFFFFF" />
+
+    <!-- حاشیه خاکستری روشن -->
     <stroke
         android:width="1dp"
-        android:color="#E8EAED" />
+        android:color="#DCDCDC" /> <!-- خاکستری روشن -->
 
     <!-- گوشه‌های گرد -->
     <corners android:radius="16dp" />
+
 </shape>
