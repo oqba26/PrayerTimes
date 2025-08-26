@@ -32,6 +32,7 @@ fun MultiDate.getFormattedShamsiDateForWidget(): String {
  * شنبه = 0، یکشنبه = 1، … جمعه = 6
  */
 fun MultiDate.getShamsiDayOfWeekIndex(): Int {
+<<<<<<< HEAD
     return try {
         val parts = this.gregorian.split("/")
         val gy = parts[0].toInt()
@@ -138,4 +139,20 @@ data class MultiDate(
     override fun toString(): String {
         return "MultiDate(shamsi='$shamsi', hijri='$hijri', gregorian='$gregorian')"
     }
+=======
+    val (gy, gm, gd) = this.gregorian.split("/").map { it.toInt() }
+    val calendar = Calendar.getInstance().apply { set(gy, gm - 1, gd) }
+    return calendar.get(Calendar.DAY_OF_WEEK) % 7
+}
+
+fun MultiDate.getFormattedShamsiDateForWidget(): String {
+    val (year, month, day) = this.getShamsiParts()
+    val dayName = getWeekDayName(this)
+    val monthName = getPersianMonthName(month)
+
+    val yearInFarsi = convertToPersianNumbers(year.toString())
+    val dayInFarsi = convertToPersianNumbers(day.toString())
+
+    return "$dayName $dayInFarsi $monthName $yearInFarsi"
+>>>>>>> f0bcccde0307a3dfe302af294c0b253896eaed36
 }

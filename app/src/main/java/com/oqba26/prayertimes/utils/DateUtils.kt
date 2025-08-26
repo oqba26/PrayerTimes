@@ -205,6 +205,7 @@ object DateUtils {
         9 -> "آذر"; 10 -> "دی"; 11 -> "بهمن"; 12 -> "اسفند"
         else -> ""
     }
+<<<<<<< HEAD
 
     /**
      * با توجه به ماه (شمسی به صورت YearMonth)، شاخص اولین روز هفته را حساب می‌کند.
@@ -326,3 +327,24 @@ object DateUtils {
         return currentTime.format(formatter)
     }
 }
+=======
+}
+
+fun getPreviousDate(currentDate: MultiDate): MultiDate {
+    val parts = currentDate.gregorian.split("/")
+    val cal = Calendar.getInstance().apply {
+        set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
+        add(Calendar.DAY_OF_MONTH, -1)
+    }
+    return convertCalendarToMultiDate(cal)
+}
+
+fun getNextDate(currentDate: MultiDate): MultiDate {
+    val parts = currentDate.gregorian.split("/")
+    val cal = Calendar.getInstance().apply {
+        set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
+        add(Calendar.DAY_OF_MONTH, 1)
+    }
+    return convertCalendarToMultiDate(cal)
+}
+>>>>>>> f0bcccde0307a3dfe302af294c0b253896eaed36

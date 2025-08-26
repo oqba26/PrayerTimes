@@ -82,15 +82,43 @@ class ModernWidgetProvider : AppWidgetProvider() {
                     "${DateUtils.getPersianMonthName(shamsiParts.second)} " +
                     "${DateUtils.convertToPersianNumbers(shamsiParts.first.toString())}"
 
+<<<<<<< HEAD
         val hijriDate = "${hijriParts.third} ${hijriParts.second} ${hijriParts.first}"
         val gregDate = "${gregParts.first} ${gregParts.second} ${gregParts.third}"
         val hijriGregLine = "$hijriDate | $gregDate"
+=======
+        // تاریخ‌ها
+        views.setTextViewText(R.id.tv_persian_date, date.getFormattedShamsiDateForWidget())
+>>>>>>> f0bcccde0307a3dfe302af294c0b253896eaed36
 
         val views = if (isLarge) {
             val remoteViews = RemoteViews(context.packageName, R.layout.modern_widget_layout_large)
 
+<<<<<<< HEAD
             val time = SimpleDateFormat("HH:mm", Locale("fa")).format(Date())
             remoteViews.setTextViewText(R.id.tv_clock, DateUtils.convertToPersianNumbers(time))
+=======
+        // هایلایت کردن نماز فعلی
+        val highlightedPrayer = getCurrentPrayerForHighlight(prayers, now)
+        val prayerTextViews = mapOf(
+            "طلوع بامداد" to R.id.tv_fajr_time,
+            "طلوع خورشید" to R.id.tv_sunrise_time,
+            "ظهر" to R.id.tv_dhuhr_time,
+            "عصر" to R.id.tv_asr_time,
+            "غروب" to R.id.tv_maghrib_time,
+            "عشاء" to R.id.tv_isha_time
+        )
+
+        val highlightColor = 0xFFFFFFFF.toInt() // White for highlight
+        val defaultColor = 0xFFB2DFDB.toInt()   // A light teal/gray for default
+
+        prayerTextViews.forEach { (name, id) ->
+            val text = "${name.replace("طلوع ", "")}: ${prayers[name] ?: "--:--"}"
+            views.setTextViewText(id, text)
+            val color = if (name == highlightedPrayer) highlightColor else defaultColor
+            views.setTextColor(id, color)
+        }
+>>>>>>> f0bcccde0307a3dfe302af294c0b253896eaed36
 
             remoteViews.setTextViewText(R.id.tv_persian_date, persianDate)
             remoteViews.setTextViewText(R.id.tv_hg_date, hijriGregLine)
