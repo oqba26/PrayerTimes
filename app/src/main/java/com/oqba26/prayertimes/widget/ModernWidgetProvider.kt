@@ -34,7 +34,6 @@ class ModernWidgetProvider : AppWidgetProvider() {
             scope.launch {
                 val today = getTodayMultiDate()
                 val times = PrayerUtils.loadPrayerTimes(context, today)
-
                 updateAppWidgetWithTimes(context, appWidgetManager, appWidgetId, today, times)
             }
         }
@@ -73,67 +72,36 @@ class ModernWidgetProvider : AppWidgetProvider() {
         val shamsiParts = today.getShamsiParts()
         val hijriParts = today.hijriParts()
         val gregParts = today.gregorianParts()
-
         val weekDay = DateUtils.getWeekDayName(today)
 
-        // تاریخ شمسی با روز هفته
         val persianDate =
             "$weekDay ${DateUtils.convertToPersianNumbers(shamsiParts.third.toString())} " +
                     "${DateUtils.getPersianMonthName(shamsiParts.second)} " +
-                    "${DateUtils.convertToPersianNumbers(shamsiParts.first.toString())}"
+                    DateUtils.convertToPersianNumbers(shamsiParts.first.toString())
 
-<<<<<<< HEAD
         val hijriDate = "${hijriParts.third} ${hijriParts.second} ${hijriParts.first}"
         val gregDate = "${gregParts.first} ${gregParts.second} ${gregParts.third}"
         val hijriGregLine = "$hijriDate | $gregDate"
-=======
-        // تاریخ‌ها
-        views.setTextViewText(R.id.tv_persian_date, date.getFormattedShamsiDateForWidget())
->>>>>>> f0bcccde0307a3dfe302af294c0b253896eaed36
 
         val views = if (isLarge) {
             val remoteViews = RemoteViews(context.packageName, R.layout.modern_widget_layout_large)
 
-<<<<<<< HEAD
             val time = SimpleDateFormat("HH:mm", Locale("fa")).format(Date())
             remoteViews.setTextViewText(R.id.tv_clock, DateUtils.convertToPersianNumbers(time))
-=======
-        // هایلایت کردن نماز فعلی
-        val highlightedPrayer = getCurrentPrayerForHighlight(prayers, now)
-        val prayerTextViews = mapOf(
-            "طلوع بامداد" to R.id.tv_fajr_time,
-            "طلوع خورشید" to R.id.tv_sunrise_time,
-            "ظهر" to R.id.tv_dhuhr_time,
-            "عصر" to R.id.tv_asr_time,
-            "غروب" to R.id.tv_maghrib_time,
-            "عشاء" to R.id.tv_isha_time
-        )
 
-        val highlightColor = 0xFFFFFFFF.toInt() // White for highlight
-        val defaultColor = 0xFFB2DFDB.toInt()   // A light teal/gray for default
-
-        prayerTextViews.forEach { (name, id) ->
-            val text = "${name.replace("طلوع ", "")}: ${prayers[name] ?: "--:--"}"
-            views.setTextViewText(id, text)
-            val color = if (name == highlightedPrayer) highlightColor else defaultColor
-            views.setTextColor(id, color)
-        }
->>>>>>> f0bcccde0307a3dfe302af294c0b253896eaed36
-
+            // تاریخ‌ها
             remoteViews.setTextViewText(R.id.tv_persian_date, persianDate)
             remoteViews.setTextViewText(R.id.tv_hg_date, hijriGregLine)
 
-            val order = listOf("طلوع بامداد","طلوع خورشید","ظهر","عصر","غروب","عشاء")
+            // هایلایت نماز بعدی
             val nextPrayer = PrayerUtils.getCurrentPrayerForHighlight(times, java.time.LocalTime.now())
-
+            val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
             val prayersLine = order.joinToString(" | ") { name ->
                 val raw = DateUtils.convertToPersianNumbers(times[name] ?: "--:--")
                 if (name == nextPrayer) "<b><font color='#2E7D32'>$name: $raw</font></b>"
                 else "<font color='#0D47A1'>$name: $raw</font>"
             }
 
-// توجه: باید در فایل layout مربوط به ویجت (مثلاً modern_widget_layout_large.xml)
-// یک TextView با id="tv_prayers_line" بذاری
             remoteViews.setTextViewText(
                 R.id.tv_prayers_line,
                 android.text.Html.fromHtml(prayersLine, android.text.Html.FROM_HTML_MODE_LEGACY)

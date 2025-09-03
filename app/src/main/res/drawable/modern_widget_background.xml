@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<<<<<<< HEAD
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- پس‌زمینه سفید -->
-    <solid android:color="#FFFFFF" />
+    <!-- لایه بیرونی: پس‌زمینه سفید + حاشیه خاکستری -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <stroke
+                android:width="1dp"
+                android:color="#DCDCDC" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
 
-    <!-- حاشیه خاکستری روشن -->
-    <stroke
-        android:width="1dp"
-        android:color="#DCDCDC" /> <!-- خاکستری روشن -->
-=======
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- رنگ پس‌زمینه سبز تیره -->
-    <solid android:color="#004D40" />
+    <!-- لایه داخلی: پس‌زمینه سبز تیره -->
+    <item
+        android:top="2dp"
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#004D40" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
 
-    <!-- حاشیه همرنگ برای جلوگیری از لبه‌های تیز -->
-    <stroke
-        android:width="1dp"
-        android:color="#004D40" />
->>>>>>> f0bcccde0307a3dfe302af294c0b253896eaed36
-
-    <!-- گوشه‌های گرد -->
-    <corners android:radius="16dp" />
-
-</shape>
+</layer-list>

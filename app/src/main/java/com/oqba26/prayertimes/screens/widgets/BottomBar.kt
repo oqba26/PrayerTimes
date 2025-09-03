@@ -2,52 +2,59 @@ package com.oqba26.prayertimes.screens.widgets
 
 import android.content.Intent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Nightlight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.oqba26.prayertimes.models.MultiDate
-import com.oqba26.prayertimes.utils.*
-import com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers
-import com.oqba26.prayertimes.utils.DateUtils.getPersianMonthName
-import com.oqba26.prayertimes.utils.DateUtils.getWeekDayName
-import kotlinx.coroutines.launch
+import com.oqba26.prayertimes.utils.ShareUtils
 
 @Composable
 fun BottomBar(
     currentDate: MultiDate,
     prayers: Map<String, String>,
-    onToggleDarkMode: () -> Unit
+    onToggleDarkMode: () -> Unit,
+    onOpenSettings: () -> Unit,
+    height: Dp = 32.dp
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(height)
             .background(Color(0xFF00ACC1))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            IconButton(onClick = { /* تنظیمات */ }) {
+
+            IconButton(onClick = onOpenSettings) {   // ← این
                 Icon(Icons.Default.Settings, contentDescription = "تنظیمات", tint = Color.White)
             }
 
-            IconButton(onClick = { onToggleDarkMode() }) {
+            // شب/روز
+            IconButton(onClick = onToggleDarkMode) {
                 Icon(
                     imageVector = Icons.Default.Nightlight,
                     contentDescription = "تغییر حالت شب/روز",
@@ -55,30 +62,20 @@ fun BottomBar(
                 )
             }
 
+            // اشتراک‌گذاری
             IconButton(onClick = {
-                scope.launch {
-                    val shamsi = currentDate.getShamsiParts()
-                    val hijri = currentDate.hijriParts()
-                    val greg = currentDate.gregorianParts()
-                    val weekDay = getWeekDayName(currentDate)
-
-                    val message = buildString {
-                        append("📅 $weekDay ${convertToPersianNumbers(shamsi.third.toString())} ${getPersianMonthName(shamsi.second)} ${convertToPersianNumbers(shamsi.first.toString())}\n")
-                        append("🕋 ${hijri.third} ${hijri.second} ${hijri.first} | ${greg.first} ${greg.second} ${greg.third}\n\n")
-                        prayers.forEach { (key, value) ->
-                            append("  $key: ${convertToPersianNumbers(value)}\n")
-                        }
-                    }
-
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, message)
-                    }
-
-                    context.startActivity(Intent.createChooser(intent, "اشتراک‌گذاری با"))
+                val text = ShareUtils.buildShareText(currentDate, prayers)
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
                 }
+                context.startActivity(Intent.createChooser(intent, "اشتراک‌گذاری با"))
             }) {
-                Icon(Icons.Default.Share, contentDescription = "اشتراک‌گذاری", tint = Color.White)
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "اشتراک‌گذاری",
+                    tint = Color.White
+                )
             }
         }
     }

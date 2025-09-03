@@ -1,4 +1,4 @@
-package com.oqba26.prayertimes.ui.theme
+package com.oqba26.prayertimes.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

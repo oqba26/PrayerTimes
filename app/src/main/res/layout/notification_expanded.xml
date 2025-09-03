@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/container_expanded"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="12dp">
+
+    <!-- ناوبری + عنوان‌ها -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- چپ: جلو (NEXT) فلش رو به بیرون «‹» -->
+        <ImageView
+            android:id="@+id/iv_next_day_exp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_chevron_left_24"
+            android:contentDescription="@string/app_name" />
+
+        <!-- مرکز: عنوان‌ها -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <!-- عنوان (fallback) -->
+            <TextView
+                android:id="@+id/tv_shamsi_date"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:gravity="center"
+                android:textAlignment="center"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <!-- عنوان (Bitmap) -->
+            <ImageView
+                android:id="@+id/iv_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter" />
+
+            <!-- قمری | میلادی (fallback) -->
+            <TextView
+                android:id="@+id/tv_other_dates"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:textAlignment="center"
+                android:includeFontPadding="false"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="6dp" />
+
+            <!-- قمری | میلادی (Bitmap) -->
+            <ImageView
+                android:id="@+id/iv_other"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter" />
+        </LinearLayout>
+
+        <!-- راست: عقب (PREV) فلش رو به بیرون «›» -->
+        <ImageView
+            android:id="@+id/iv_prev_day_exp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_chevron_right_24"
+            android:contentDescription="@string/app_name" />
+    </LinearLayout>
+
+    <!-- اوقات نماز (fallback) -->
+    <TextView
+        android:id="@+id/tv_prayer_times"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:textAlignment="center"
+        android:textDirection="anyRtl"
+        android:includeFontPadding="false"
+        android:lineSpacingExtra="2dp"
+        android:text="..." />
+
+    <!-- اوقات نماز (Bitmap) -->
+    <ImageView
+        android:id="@+id/iv_prayer_times"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter" />
+</LinearLayout>

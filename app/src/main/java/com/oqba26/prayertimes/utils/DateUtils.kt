@@ -2,6 +2,7 @@ package com.oqba26.prayertimes.utils
 
 import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.models.getShamsiDayOfWeekIndex
+import com.oqba26.prayertimes.utils.DateUtils.convertCalendarToMultiDate
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
@@ -205,7 +206,7 @@ object DateUtils {
         9 -> "آذر"; 10 -> "دی"; 11 -> "بهمن"; 12 -> "اسفند"
         else -> ""
     }
-<<<<<<< HEAD
+
 
     /**
      * با توجه به ماه (شمسی به صورت YearMonth)، شاخص اولین روز هفته را حساب می‌کند.
@@ -327,8 +328,8 @@ object DateUtils {
         return currentTime.format(formatter)
     }
 }
-=======
-}
+
+
 
 fun getPreviousDate(currentDate: MultiDate): MultiDate {
     val parts = currentDate.gregorian.split("/")
@@ -347,4 +348,4 @@ fun getNextDate(currentDate: MultiDate): MultiDate {
     }
     return convertCalendarToMultiDate(cal)
 }
->>>>>>> f0bcccde0307a3dfe302af294c0b253896eaed36
+

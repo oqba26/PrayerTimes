@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- فونت پیش‌فرض سیستم -->
+    <style name="NotifFont_System">
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+
+    <!-- IranianSans: اگر اسم فایل فونت چیز دیگری است، همین @font/iraniansans را عوض کن -->
+    <style name="NotifFont_IranianSans">
+        <item name="android:fontFamily">@font/iraniansans</item>
+    </style>
+</resources>

@@ -63,8 +63,8 @@ android {
 dependencies {
     // Core AndroidX Libraries
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.6.1") // برای تم‌ها و کامپوننت‌های View System
-    implementation("com.google.android.material:material:1.12.0") // برای تم‌های Material XML (MDC)
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.12.0")
 
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
@@ -73,13 +73,22 @@ dependencies {
     // Activity for Compose
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // Compose Bill of Materials (BOM) - برای مدیریت هماهنگ نسخه‌های Compose
-    implementation(platform("androidx.compose:compose-bom:2024.05.00"))
+    implementation("androidx.compose.ui:ui:1.6.0")
+    implementation("androidx.compose.material3:material3:1.2.0")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.6.0")
+
+
+
+    // Compose Bill of Materials (BOM)
+    val composeBom = platform("androidx.compose:compose-bom:2024.05.00")
+    implementation(composeBom)
+    androidTestImplementation(composeBom)
+
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3") // Material 3 برای Compose
-    implementation("androidx.compose.material:material-icons-extended") // آیکون‌های بیشتر برای Compose
+    implementation("androidx.compose.material:material-icons-extended")
 
     // Navigation for Compose
     implementation("androidx.navigation:navigation-compose:2.7.7")
@@ -95,28 +104,21 @@ dependencies {
 
     implementation(project(":PersianDate"))
 
-
-
     // Desugaring for java.time APIs
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
-    // Glance for App Widgets (با فرض استفاده از Version Catalog)
+    // Glance for App Widgets
     implementation(libs.androidx.glance)
     implementation(libs.androidx.glance.appwidget)
 
-    // Benchmark Tracing Processor (در صورت نیاز، در غیر این صورت به debugImplementation منتقل شود)
-    // اگر از Version Catalog استفاده نمی‌کنید، نسخه را مستقیم وارد کنید، مثلا:
-    // implementation("androidx.benchmark:benchmark-tracing-processor:1.2.4")
     implementation(libs.androidx.benchmark.traceprocessor.android)
-
 
     // Testing Libraries
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
-    // AndroidTest Compose BOM (باید با BOM اصلی هماهنگ باشد)
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.05.00"))
+    // AndroidTest Compose
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
     // Debug Implementation for Compose tooling
