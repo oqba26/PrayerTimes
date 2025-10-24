@@ -2,12 +2,14 @@ package com.oqba26.prayertimes.screens.widgets
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -25,50 +27,80 @@ import java.time.LocalTime
 @Composable
 fun PrayerTimesList(
     prayerTimes: Map<String, String>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDark: Boolean,
+    usePersianNumbers: Boolean,
+    use24HourFormat: Boolean,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val order = remember { listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء") }
-
-    // نماز فعلی برای هایلایت (پنجره ۱۵ دقیقه‌ای در PrayerUtils اعمال می‌شود)
     val now = LocalTime.now()
-    val current = remember(prayerTimes) { PrayerUtils.getCurrentPrayerForHighlight(prayerTimes, now) }
+    val currentPrayerName = remember(prayerTimes, now) { PrayerUtils.getCurrentPrayerForHighlight(prayerTimes, now) }
 
-    // تقسیم مساوی فضای موجود بین 6 ردیف (بدون اسکرول)
-    Column(modifier = modifier.fillMaxSize()) {
-        order.forEachIndexed { index, name ->
-            val time = prayerTimes[name]?.let(DateUtils::convertToPersianNumbers) ?: "--:--"
-            val highlighted = (name == current)
+    Column(modifier = modifier) {
+        Column(modifier = Modifier.weight(1f)) {
+            order.forEachIndexed { index, prayerName ->
+                val timeToFormat = prayerTimes[prayerName] ?: "--:--"
+                val formattedTime = DateUtils.formatDisplayTime(timeToFormat, use24HourFormat, usePersianNumbers)
 
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .background(if (highlighted) Color(0xFFDFF3DF) else Color.Transparent)
-                    .padding(horizontal = 16.dp),   // ← padding قبلی برگردانده شد
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // ساعت سمت چپ
-                Text(
-                    text = time,
-                    modifier = Modifier.weight(1f),
-                    fontSize = 16.sp,
-                    color = Color(0xFF1A237E),
-                    textAlign = TextAlign.Start
-                )
-                // نام نماز سمت راست
-                Text(
-                    text = name,
-                    modifier = Modifier.weight(1f),
-                    fontSize = 16.sp,
-                    color = if (highlighted) Color(0xFF2E7D32) else Color(0xFF0D47A1),
-                    fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal,
-                    textAlign = TextAlign.End
-                )
-            }
+                val isHighlighted = (prayerName == currentPrayerName)
 
-            if (index != order.lastIndex) {
-                Divider(color = Color(0x22000000), thickness = 1.dp)
+                val rowBackgroundColor: Color
+                val timeTextColor: Color
+                val nameTextColor: Color
+
+                if (isHighlighted) {
+                    rowBackgroundColor = Color(0xFFDFF3DF)
+                    timeTextColor = Color(0xFF1A237E)
+                    nameTextColor = Color(0xFF2E7D32)
+                } else {
+                    if (isDark) {
+                        rowBackgroundColor = MaterialTheme.colorScheme.surfaceVariant
+                        timeTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        nameTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        rowBackgroundColor = Color.Transparent
+                        timeTextColor = Color(0xFF1A237E)
+                        nameTextColor = Color(0xFF0D47A1)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(rowBackgroundColor)
+                        .padding(horizontal = 1.dp), // padding داخل Row برای فاصله از لبه‌ها
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formattedTime,
+                        modifier = Modifier.weight(1f),
+                        fontSize = 18.sp,
+                        color = timeTextColor,
+                        textAlign = TextAlign.Start
+                    )
+
+                    Text(
+                        text = prayerName,
+                        modifier = Modifier.weight(1f),
+                        fontSize = 18.sp,
+                        color = nameTextColor,
+                        fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
+                        textAlign = TextAlign.End
+                    )
+                }
+
+                if (index != order.lastIndex) {
+                    val dividerColor = if (isDark) {
+                        MaterialTheme.colorScheme.outlineVariant
+                    } else {
+                        Color(0x22000000)
+                    }
+                    HorizontalDivider(thickness = 1.dp, color = dividerColor)
+                }
             }
         }
+        Spacer(Modifier.height(contentPadding.calculateBottomPadding()))
     }
 }

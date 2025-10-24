@@ -1,30 +1,39 @@
 <resources>
-    <string name="app_name">تقویم و اوقات شرعی</string>
-    <string name="widget_label">ویجت اوقات شرعی</string>
+    <string name="app_name">اوقات شرعی</string>
 
-    <string name="widget_error_loading">خطا در بارگذاری اطلاعات</string>
-    <string name="widget_error_loading_prayers">اوقات شرعی یافت نشد</string>
+    <!-- Alarm Feature Strings -->
+    <string name="title_activity_alarms">زنگ‌های هشدار</string>
+    <string name="alarms_title">زنگ‌های هشدار</string>
+    <string name="add_alarm">افزودن هشدار</string>
+    <string name="edit_alarm">ویرایش هشدار</string>
+    <string name="no_alarms_set">هیچ هشداری تنظیم نشده است.</string>
+    <string name="one_time_alarm">فقط یک بار</string>
+    <string name="daily">روزانه</string>
+    <string name="save">ذخیره</string>
+    <string name="delete">حذف</string>
+    <string name="back">بازگشت</string>
+    <string name="label">برچسب</string>
+    <string name="repeat">تکرار</string>
+    <string name="vibrate">لرزش</string>
+    <string name="ringtone">صدای زنگ</string>
+    <string name="default_ringtone">پیش‌فرض</string>
+    <string name="unknown_ringtone">نامشخص</string>
+    <string name="snooze_10_min">تعویق (۱۰ دقیقه)</string>
+    <string name="dismiss">قطع</string>
+    <string name="alarm">هشدار</string>
+    <string name="snooze">تعویق</string>
+    <string name="swipe_up_to_stop">برای قطع کردن، صفحه را به بالا بکشید</string>
 
-    <!-- پیشوندهای نام نماز برای ویجت -->
-    <string name="prayer_prefix_fajr">بامداد</string>
-    <string name="prayer_prefix_sunrise">طلوع</string>
-    <string name="prayer_prefix_dhuhr">ظهر</string>
-    <string name="prayer_prefix_asr">عصر</string>
-    <string name="prayer_prefix_maghrib">مغرب</string>
-    <string name="prayer_prefix_isha">عشاء</string>
+    <!-- Day abbreviations -->
+    <string name="saturday_short">ش</string>
+    <string name="sunday_short">ی</string>
+    <string name="monday_short">د</string>
+    <string name="tuesday_short">س</string>
+    <string name="wednesday_short">چ</string>
+    <string name="thursday_short">پ</string>
+    <string name="friday_short">ج</string>
 
-    <!-- کلیدهای نام نماز (مطابق با آنچه در PrayerUtils و فایل JSON شما استفاده می‌شود) -->
-    <string name="prayer_key_fajr">طلوع بامداد</string>
-    <string name="prayer_key_sunrise">طلوع خورشید</string>
-    <string name="prayer_key_dhuhr">ظهر</string>
-    <string name="prayer_key_asr">عصر</string>
-    <string name="prayer_key_maghrib">غروب</string> <!-- یا "غروب آفتاب" اگر در JSON شما اینطور است -->
-    <string name="prayer_key_isha">عشاء</string>
-
-    <!-- رشته‌های مربوط به نوتیفیکیشن سرویس به‌روزرسانی ساعت ویجت -->
-    <string name="clock_update_service_channel_name">سرویس به‌روزرسان ساعت ویجت</string>
-    <string name="clock_update_service_channel_description">برای فعال نگه داشتن به‌روزرسانی ساعت ویجت</string>
-    <string name="widget_clock_notification_title">ویجت اوقات شرعی</string>
-    <string name="widget_clock_notification_text">ساعت ویجت فعال و در حال به‌روزرسانی است.</string>
+    <string name="more">بیشتر</string>
+    <string name="note_editor_title">ویرایش یادداشت</string>
 
 </resources>

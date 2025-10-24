@@ -2,6 +2,25 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:ignore="ProtectedPermissions" />
+
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -11,9 +30,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="false"
         android:theme="@style/Theme.PrayerTimes"
-        tools:targetApi="31">
+        tools:targetApi="34">
 
-        <!-- فعالیت اصلی -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,63 +42,108 @@
             </intent-filter>
         </activity>
 
-        <!-- سرویس مربوط به Foreground (واقعی) -->
+        <!-- Alarm Activities -->
+        <activity
+            android:name=".activities.AlarmActivity"
+            android:exported="false"
+            android:label="@string/title_activity_alarms"
+            android:theme="@style/Theme.PrayerTimes" />
+        <activity
+            android:name=".activities.AlarmRingingActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showOnLockScreen="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.PrayerTimes.NoActionBar" />
+
+        <!-- Note Activity -->
+        <activity
+            android:name=".activities.NoteEditorActivity"
+            android:label="@string/note_editor_title"
+            android:exported="false"
+            android:theme="@style/Theme.PrayerTimes" />
+
+        <!-- Services -->
         <service
             android:name=".services.PrayerForegroundService"
-            android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name=".services.AdhanPlayerService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
-        <!-- دیگه نیازی به NotificationService نیست چون "Service" واقعی نیست -->
-
-        <!-- Receiver برای بوت -->
+        <!-- Receivers -->
         <receiver
-            android:name=".services.BootReceiver"
+            android:name=".receivers.AdhanAlarmReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receivers.SilentModeReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receivers.NoteAlarmReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.oqba26.prayertimes.ACTION_SHOW_NOTE_REMINDER" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receivers.AlarmReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.oqba26.prayertimes.ACTION_TRIGGER_ALARM" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receivers.BootAndTimeChangeReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.PACKAGE_REPLACED" />
-                <data android:scheme="package" />
             </intent-filter>
         </receiver>
 
-        <!-- تعریف ویجت -->
+        <!-- Widgets -->
         <receiver
             android:name=".widget.ModernWidgetProvider"
             android:exported="true"
             android:enabled="true"
             android:label="@string/app_name">
-
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
                 <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
+                <action android:name="ACTION_THEME_CHANGED" />
             </intent-filter>
-
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/modern_widget_info" />
         </receiver>
 
-
+        <receiver
+            android:name=".widget.LargeModernWidgetProvider"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="ACTION_THEME_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/modern_widget_info_large" />
+        </receiver>
 
     </application>
-
-    <!-- مجوزهای لازم -->
-    <uses-permission android:name="android.permission.INTERNET"
-        tools:ignore="ManifestOrder" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-
-
-
-
-
 </manifest>

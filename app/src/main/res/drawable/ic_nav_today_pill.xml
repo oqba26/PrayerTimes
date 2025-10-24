@@ -1,0 +1,16 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="18dp"/>
+            <solid android:color="@color/nav_pill_today_bg"/>
+            <padding
+                android:left="12dp"
+                android:right="12dp"
+                android:top="6dp"
+                android:bottom="6dp"/>
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/ic_today_24"
+        android:gravity="center"/>
+</layer-list>

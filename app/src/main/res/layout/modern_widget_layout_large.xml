@@ -1,73 +1,152 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
+    android:id="@+id/widget_background_view"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="12dp"
     android:layoutDirection="rtl"
     android:gravity="center"
-    android:background="@drawable/widget_background">
+    android:background="@drawable/widget_background_light">
 
-    <!-- ساعت -->
-    <TextView
-        android:id="@+id/tv_clock"
+    <!-- ساعت: TextView + ImageView (bitmap) -->
+    <FrameLayout
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="۰۰:۰۰"
-        android:textSize="26sp"
-        android:textColor="#0D47A1"
-        android:textStyle="bold"
-        android:gravity="center"/>
+        android:layout_height="wrap_content">
+        <TextView
+            android:id="@+id/tv_clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="۰۰:۰۰"
+            android:textSize="26sp"
+            android:textColor="#0D47A1"
+            android:textStyle="bold"
+            android:gravity="center"/>
+        <ImageView
+            android:id="@+id/iv_clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"/>
+    </FrameLayout>
 
     <TextView
+        android:id="@+id/separator1_large"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="#BDBDBD"
         android:layout_marginVertical="8dp"/>
 
     <!-- تاریخ شمسی -->
-    <TextView
-        android:id="@+id/tv_persian_date"
+    <FrameLayout
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="سه‌شنبه ۳ شهریور ۱۴۰۴"
-        android:textColor="#2E7D32"
-        android:textSize="16sp"
-        android:textStyle="bold"/>
+        android:layout_height="wrap_content">
+        <TextView
+            android:id="@+id/tv_persian_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="سه‌شنبه ۳ شهریور ۱۴۰۴"
+            android:textColor="#2E7D32"
+            android:textSize="16sp"
+            android:textStyle="bold"/>
+        <ImageView
+            android:id="@+id/iv_persian_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"/>
+    </FrameLayout>
 
     <!-- قمری / میلادی -->
-    <TextView
-        android:id="@+id/tv_hg_date"
+    <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="۱۴۴۷ / ۰۲ / ۲۹ | ۲۰۲۵ / ۰۸ / ۲۵"
-        android:textColor="#424242"
-        android:textSize="14sp"
-        android:layout_marginTop="4dp"/>
+        android:layout_marginTop="4dp">
+        <TextView
+            android:id="@+id/tv_hg_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="۱۴۴۷ / ۰۲ / ۲۹ | ۲۰۲۵ / ۰۸ / ۲۵"
+            android:textColor="#424242"
+            android:textSize="14sp"/>
+        <ImageView
+            android:id="@+id/iv_hg_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"/>
+    </FrameLayout>
 
     <TextView
+        android:id="@+id/separator2_large"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="#BDBDBD"
         android:layout_marginVertical="12dp"/>
 
-    <TextView
-        android:id="@+id/tv_prayers_line"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:textSize="13sp"
-        android:textColor="#0D47A1"
-        android:singleLine="false" />
+    <!-- اوقات نماز: fallback + bitmap -->
+    <FrameLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <TextView
+            android:id="@+id/tv_prayers_line"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:textColor="#0D47A1"
+            android:singleLine="false" />
+        <ImageView
+            android:id="@+id/iv_prayers"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"/>
+    </FrameLayout>
 
-    <!-- اوقات نماز افقی -->
+    <!-- دکمه‌ها: چپ=روز بعد | وسط=امروز | راست=روز قبل -->
+    <!-- ردیف دکمه‌ها: چپ=روز بعد | وسط=امروز | راست=روز قبل -->
     <LinearLayout
-        android:id="@+id/times_container"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:layoutDirection="rtl"/>
+        android:layout_marginTop="8dp"
+        android:layoutDirection="ltr">
+
+        <!-- چپ: روز بعد -->
+        <ImageView
+            android:id="@+id/iv_next_day"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:adjustViewBounds="true"
+            android:scaleType="centerInside"
+            android:contentDescription="روز بعد"/>
+
+        <!-- وسط: امروز (فضا محفوظ؛ حالت امروز = INVISIBLE) -->
+        <ImageView
+            android:id="@+id/btn_today"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:adjustViewBounds="true"
+            android:scaleType="centerInside"
+            android:visibility="invisible"
+            android:contentDescription="بازگشت به امروز"/>
+
+        <!-- راست: روز قبل -->
+        <ImageView
+            android:id="@+id/iv_prev_day"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:adjustViewBounds="true"
+            android:scaleType="centerInside"
+            android:contentDescription="روز قبل"/>
+    </LinearLayout>
 </LinearLayout>

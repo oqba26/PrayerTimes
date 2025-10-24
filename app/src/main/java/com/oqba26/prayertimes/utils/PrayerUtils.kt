@@ -19,6 +19,60 @@ object PrayerUtils {
         "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
     )
 
+    // تبدیل ارقام فارسی به لاتین
+    private fun toAsciiDigits(s: String): String {
+        val map = mapOf('۰' to '0','۱' to '1','۲' to '2','۳' to '3','۴' to '4',
+            '۵' to '5','۶' to '6','۷' to '7','۸' to '8','۹' to '9')
+        val sb = StringBuilder(s.length)
+        for (ch in s) sb.append(map[ch] ?: ch)
+        return sb.toString()
+    }
+
+    // نرمال‌سازی ساعت به HH:mm (همراه با تبدیل ارقام)
+    private fun sanitizeTime(raw: String): String {
+        return try {
+            val s = toAsciiDigits(raw.trim())
+            val parts = s.split(":")
+            if (parts.size == 2) {
+                val h = parts[0].padStart(2, '0')
+                val m = parts[1].padStart(2, '0')
+                "$h:$m"
+            } else s
+        } catch (_: Exception) {
+            raw
+        }
+    }
+
+    // تبدیل امن ساعت (با تبدیل ارقام)
+    fun parseTimeSafely(timeStr: String): LocalTime? {
+        val formatter = DateTimeFormatter.ofPattern("HH:mm")
+        return try {
+            val s = sanitizeTime(timeStr)
+            val parts = s.split(":")
+            if (parts.size == 2) {
+                LocalTime.parse("${parts[0]}:${parts[1]}", formatter)
+            } else null
+        } catch (e: Exception) {
+            Log.e("PrayerUtils", "⛔ خطا در parseTimeSafely: $timeStr", e)
+            null
+        }
+    }
+
+    // پارس ساعت با درنظر گرفتن 24 ساعته‌کردن عصر/غروب/عشاء
+    private fun parseTimeFor(name: String, raw: String): LocalTime? {
+        val s = sanitizeTime(raw)
+        val parts = s.split(":")
+        if (parts.size != 2) return null
+        val h = parts[0].toIntOrNull() ?: return null
+        val m = parts[1].toIntOrNull() ?: return null
+        var hh = h
+        // عصر/غروب/عشاء: اگر 12ساعته آمده باشند، به 24ساعته تبدیل کنیم
+        if (name == "عصر" || name == "غروب" || name == "عشاء") {
+            if (hh in 0..11) hh += 12
+        }
+        return try { LocalTime.of(hh % 24, m) } catch (_: Exception) { null }
+    }
+
     /**
      * بارگذاری اوقات نماز روز از فایل JSON داخل assets
      */
@@ -32,10 +86,8 @@ object PrayerUtils {
                     val type = object : TypeToken<Map<String, Map<String, String>>>() {}.type
                     val data: Map<String, Map<String, String>> = Gson().fromJson(reader, type)
 
-                    Log.d("HighlightDebug", "📂 JSON اوقات لود شد (${data.size} کلید).")
-
                     val parts = date.shamsi.split("/")
-                    if (parts.size < 3) return@withContext emptyMap<String, String>()
+                    if (parts.size < 3) return@withContext emptyMap()
 
                     val monthNumber = parts[1].toIntOrNull() ?: return@withContext emptyMap<String, String>()
                     val monthName = DateUtils.getPersianMonthName(monthNumber)
@@ -43,53 +95,40 @@ object PrayerUtils {
                     val key = "$monthName/$day"
 
                     val result = data[key] ?: emptyMap()
-                    Log.d("HighlightDebug", "🔑 کلید جستجو: $key → نتیجه ${result.size} رکورد.")
 
-                    // 🛠 نرمال‌سازی مقادیر
-                    val normalized = result.mapValues { normalizeTimeFormat(it.value) }
-
-                    Log.d("HighlightDebug", "✅ بعد از نرمالایز = $normalized")
-                    normalized
+                    // نرمال‌سازی کامل (ارقام + HH:mm)
+                    result.mapValues { sanitizeTime(it.value) }
                 }
             }
         } catch (e: Exception) {
-            Log.e("HighlightDebug", "⛔ خطا در loadPrayerTimes", e)
+            Log.e("PrayerUtils", "⛔ خطا در loadPrayerTimes", e)
             emptyMap()
         }
     }
 
     /**
-     * هایلایت نماز فعلی با پنجره ۱۵ دقیقه‌ای
-     * اگر از آخرین نماز (عشاء) ۱۵ دقیقه گذشت، به «طلوع بامداد» (آیتم اول) wrap می‌کند.
+     * هایلایت "نماز بعدی" با چسبندگی 30 دقیقه‌ای برای هر 6 وقت
      */
-    fun getCurrentPrayerForHighlight(prayerTimes: Map<String, String>, now: LocalTime): String {
+    fun getCurrentPrayerForHighlight(times: Map<String, String>, now: LocalTime): String? {
         val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-        val formatter = DateTimeFormatter.ofPattern("HH:mm")
+        val stickMinutes = 30L
 
-        val parsedTimes = order.mapNotNull { name ->
-            prayerTimes[name]?.let { raw ->
-                runCatching {
-                    val parsed = LocalTime.parse(raw, formatter)
-                    val adjusted = if ((name == "عصر" || name == "غروب" || name == "عشاء") && parsed.hour < 8)
-                        parsed.plusHours(12) else parsed
-                    name to adjusted
-                }.getOrNull()
-            }
+        val parsed = order.mapNotNull { name ->
+            val s = times[name] ?: return@mapNotNull null
+            parseTimeFor(name, s)?.let { t -> name to t }
         }.sortedBy { it.second }
 
-        if (parsedTimes.isEmpty()) return order.first()
+        if (parsed.isEmpty()) return null
 
-        val lastPrayer = parsedTimes.lastOrNull { it.second <= now }
-        val nextPrayer = parsedTimes.firstOrNull { it.second > now }
-
-        return when {
-            lastPrayer == null -> parsedTimes.first().first
-            now.isBefore(lastPrayer.second.plusMinutes(15)) -> lastPrayer.first
-            nextPrayer != null -> nextPrayer.first
-            else -> parsedTimes.first().first // wrap به طلوع بامداد
+        for ((name, t) in parsed) {
+            if (!now.isAfter(t.plusMinutes(stickMinutes))) return name
         }
+        return parsed.first().first
     }
 
+    /**
+     * نام و زمان "وقت بعدی" برای نمایش
+     */
     suspend fun getNextPrayerNameAndTime(
         context: Context,
         date: MultiDate,
@@ -97,20 +136,15 @@ object PrayerUtils {
         todayTimes: Map<String, String>
     ): Pair<String, String>? = withContext(Dispatchers.Default) {
         val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-        val formatter = DateTimeFormatter.ofPattern("HH:mm")
 
         val items = order.mapNotNull { name ->
             val t = todayTimes[name] ?: return@mapNotNull null
-            val base = runCatching { LocalTime.parse(t, formatter) }.getOrNull() ?: return@mapNotNull null
-            val adjusted = when (name) {
-                "ظهر", "عصر", "غروب", "عشاء" -> if (base.hour < 8) base.plusHours(12) else base
-                else -> base
-            }
-            Triple(name, adjusted, t)
+            parseTimeFor(name, t)?.let { parsed -> Triple(name, parsed, sanitizeTime(t)) }
         }.sortedBy { it.second }
 
+        // "وقت بعدی" = اولین وقتی که بعد از now است (بدون چسبندگی)
         val nextToday = items.firstOrNull { it.second.isAfter(now) }
-        if (nextToday != null) return@withContext nextToday.first to normalizeTimeFormat(nextToday.third)
+        if (nextToday != null) return@withContext nextToday.first to nextToday.third
 
         // بعد از عشاء → طلوع بامداد فردا
         val tomorrowFajr = loadTomorrowFajr(context, date)
@@ -118,8 +152,7 @@ object PrayerUtils {
     }
 
     /**
-     * ساعت «طلوع بامداد» فردا را از JSON برمی‌گرداند.
-     * از همان کلیدهایی که loadPrayerTimes استفاده می‌کند بهره می‌برد.
+     * ساعت "طلوع بامداد" فردا از JSON
      */
     private suspend fun loadTomorrowFajr(context: Context, date: MultiDate): String? =
         withContext(Dispatchers.IO) {
@@ -139,14 +172,14 @@ object PrayerUtils {
                         val todayKey = "$thisMonth/$day"
                         if (!data.containsKey(todayKey)) return@withContext null
 
-                        // کاندید 1: فردا همین ماه
+                        // فردا همین ماه
                         val tomorrowDay = (day.toInt() + 1).toString().padStart(2, '0')
                         val tomorrowKeySameMonth = "$thisMonth/$tomorrowDay"
 
                         val nextKey = if (data.containsKey(tomorrowKeySameMonth)) {
                             tomorrowKeySameMonth
                         } else {
-                            // کاندید 2: ماه بعد، روز 01
+                            // ماه بعد، روز 01
                             val idx = persianMonths.indexOf(thisMonth).coerceAtLeast(0)
                             val nextMonth = persianMonths[(idx + 1) % 12]
                             val k = "$nextMonth/01"
@@ -154,7 +187,7 @@ object PrayerUtils {
                         } ?: return@withContext null
 
                         val fajr = data[nextKey]?.get("طلوع بامداد") ?: return@withContext null
-                        return@withContext normalizeTimeFormat(fajr)
+                        sanitizeTime(fajr)
                     }
                 }
             } catch (e: Exception) {
@@ -164,42 +197,7 @@ object PrayerUtils {
         }
 
     /**
-     * نرمال‌سازی فرمت ساعت
-     * "6:2" → "06:02"
-     */
-    private fun normalizeTimeFormat(raw: String): String {
-        return try {
-            val parts = raw.split(":")
-            if (parts.size == 2) {
-                val h = parts[0].padStart(2, '0')
-                val m = parts[1].padStart(2, '0')
-                "$h:$m"
-            } else raw
-        } catch (e: Exception) {
-            raw
-        }
-    }
-
-    /**
-     * تبدیل امن ساعت به LocalTime
-     */
-    fun parseTimeSafely(timeStr: String): LocalTime? {
-        val formatter = DateTimeFormatter.ofPattern("HH:mm")
-        return try {
-            val parts = timeStr.trim().split(":")
-            if (parts.size == 2) {
-                val h = parts[0].padStart(2, '0')
-                val m = parts[1].padStart(2, '0')
-                LocalTime.parse("$h:$m", formatter)
-            } else null
-        } catch (e: Exception) {
-            Log.e("PrayerUtils", "⛔ خطا در parseTimeSafely: $timeStr", e)
-            null
-        }
-    }
-
-    /**
-     * نام نماز فعلی برای نمایش وضعیت عمومی (در صورت نیاز)
+     * نام نماز فعلی (در صورت نیاز جای دیگر)
      */
     fun getCurrentPrayerNameFixed(prayerTimes: Map<String, String>): String {
         val now = LocalTime.now()

@@ -14,4 +14,10 @@
 
         <!-- سایر تنظیمات لازم -->
     </style>
+
+    <style name="Theme.PrayerTimes.NoActionBar" parent="Theme.PrayerTimes">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
 </resources>

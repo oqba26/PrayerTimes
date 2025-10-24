@@ -1,53 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
     <!-- رنگ‌های مورد استفاده در ویجت -->
-    <color name="widget_text_normal">#333333</color> <!-- رنگ عادی متن اوقات نماز -->
-    <color name="widget_text_highlight">#004D40
-    </color> <!-- رنگ هایلایت برای نماز بعدی (همرنگ ساعت) -->
-    <color name="widget_text_time_header">#004D40</color> <!-- رنگ ساعت -->
-    <color name="widget_text_date_shamsi">#0E7490</color> <!-- رنگ تاریخ شمسی -->
-    <color name="widget_text_date_hg">#555555</color> <!-- رنگ تاریخ قمری/میلادی -->
-    <color name="widget_divider">#D0D0D0</color> <!-- رنگ جداکننده -->
-    <color name="widget_error_text">#D32F2F</color> <!-- رنگ متن خطا -->
+    <!-- رنگ عادی متن اوقات نماز -->
+    <!-- رنگ هایلایت برای نماز بعدی (همرنگ ساعت) -->
+    <!-- رنگ ساعت -->
+    <!-- رنگ تاریخ شمسی -->
+    <!-- رنگ تاریخ قمری/میلادی -->
+    <!-- رنگ جداکننده -->
+    <!-- رنگ متن خطا -->
     <!-- رنگ‌های اصلی که در لایوت قبلی شما برای هر نماز بود (برای مرجع، فعلا استفاده نمی‌شوند) -->
-    <color name="fajr_color_original">#3F51B5</color>
-    <color name="sunrise_color_original">#FF9800</color>
-    <color name="dhuhr_color_original">#FFC107</color>
-    <color name="asr_color_original">#FF5722</color>
-    <color name="maghrib_color_original">#9C27B0</color>
-    <color name="isha_color_original">#673AB7</color>
     <!-- رنگ‌های تم روشن -->
     <color name="md_theme_light_primary">#6750A4</color>
     <color name="md_theme_light_primary_variant">#FFBB86FC</color>
     <color name="md_theme_light_onPrimary">#FFFFFF</color>
     <color name="md_theme_light_secondary">#03DAC5</color>
     <color name="md_theme_light_onSecondary">#000000</color>
-    <color name="md_theme_light_background">#FFFFFF</color>
-    <color name="md_theme_light_surface">#FFFFFF</color>
-    <color name="md_theme_light_error">#B00020</color>
-    <color name="md_theme_light_onBackground">#000000</color>
-    <color name="md_theme_light_onSurface">#000000</color>
+    <color name="nav_pill_bg">#546E7A</color>        <!-- پس‌زمینه قرصی Prev/Next -->
+    <color name="nav_pill_today_bg">#1976D2</color>  <!-- پس‌زمینه قرصی Today -->
+    <color name="nav_pill_icon">#FFFFFFFF</color>    <!-- رنگ آیکن داخل قرصی -->
     <!-- رنگ‌های تم تاریک -->
-    <color name="md_theme_dark_primary">#BB86FC</color>
-    <color name="md_theme_dark_primary_variant">#3700B3</color>
-    <color name="md_theme_dark_onPrimary">#000000</color>
-    <color name="md_theme_dark_secondary">#03DAC5</color>
-    <color name="md_theme_dark_onSecondary">#000000</color>
-    <color name="md_theme_dark_background">#121212</color>
-    <color name="md_theme_dark_surface">#121212</color>
-    <color name="md_theme_dark_error">#CF6679</color>
-    <color name="md_theme_dark_onBackground">#FFFFFF</color>
-    <color name="md_theme_dark_onSurface">#FFFFFF</color>
     <!-- رنگ متن معمولی اوقات -->
-    <color name="prayer_text_normal">#0D47A1</color> <!-- آبی تیره -->
+    <!-- آبی تیره -->
     <!-- رنگ متن و پس‌زمینه وقت بعدی (هایلایت) -->
-    <color name="prayer_text_highlight">#2E7D32</color> <!-- سبز پررنگ -->
-    <color name="prayer_highlight_bg">#C8E6C9</color> <!-- سبز ملایم -->
+    <!-- سبز پررنگ -->
+    <!-- سبز ملایم -->
     <!-- رنگ هدر تاریخ -->
-    <color name="header_bg">#00ACC1</color>
-    <color name="header_text">#FFFFFF</color>
     <!-- رنگ خط جداکننده -->
-    <color name="divider_color">#BDBDBD</color>
 </resources>

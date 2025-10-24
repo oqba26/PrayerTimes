@@ -1,79 +1,62 @@
 package com.oqba26.prayertimes.ui
 
-import android.content.Context
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import com.oqba26.prayertimes.R
+import com.oqba26.prayertimes.theme.DefaultAppFontFamily // ایمپورت فونت وزیرمتن با تمام وزن ها
 
 object AppFonts {
 
-    data class Entry(
-        val id: String,        // دقیقاً مساوی نام فایل فونت در res/font (بدون پسوند)
+    @Immutable
+    data class FontEntry(
+        val id: String,
         val label: String,
-        val family: FontFamily
+        val family: FontFamily? // برای "system" مقدار null می‌گذاریم
     )
 
-    private fun system() = Entry("system", "پیش‌فرض سیستم", FontFamily.Default)
+    // فهرست فونت‌ها برای نمایش در تنظیمات
+    fun catalog(): List<FontEntry> = listOf(
+        FontEntry(
+            id = "estedad",
+            label = "Estedad (پیش‌فرض برنامه)",
+            family = FontFamily(Font(R.font.estedad_regular))
+        ),
+        FontEntry(
+            id = "byekan",
+            label = "B Yekan",
+            family = FontFamily(Font(R.font.byekan)) // اگر byekan هم وزن های مختلف دارد، مشابه وزیرمتن کامل شود
+        ),
+        FontEntry(
+            id = "vazirmatn",
+            label = "Vazirmatn",
+            family = DefaultAppFontFamily // <--- تغییر: استفاده از فونت وزیرمتن با تمام وزن ها
+        ),
+        FontEntry(
+            id = "iraniansans",
+            label = "Iranian Sans",
+            family = FontFamily(Font(R.font.iraniansans))
+        ),
+        FontEntry(
+            id = "sahel",
+            label = "Sahel",
+            family = FontFamily(Font(R.font.sahel_bold))
+        ),
+        FontEntry(
+            id = "system",
+            label = "پیش‌فرض سیستم",
+            family = null
+        )
+    )
 
-    private fun familyFromRes(
-        ctx: Context,
-        base: String,
-        weights: List<Pair<Int, FontWeight>>
-    ): FontFamily? {
-        val fonts = weights.mapNotNull { (resId, w) ->
-            runCatching { Font(resId, w) }.getOrNull()
-        }
-        return if (fonts.isNotEmpty()) FontFamily(fonts) else null
-    }
-
-    // 5 فونت واقعی موجود در پروژه‌ات
-    fun catalog(ctx: Context): List<Entry> {
-        val out = mutableListOf<Entry>()
-        out += system()
-
-        // byekan: فقط Regular و Bold داری
-        familyFromRes(ctx, "byekan", listOf(
-            R.font.byekan to FontWeight.Normal,
-            R.font.byekan_bold to FontWeight.Bold
-        ))?.let { out += Entry("byekan", "بی‌یکن", it) }
-
-        // estedad: regular, medium, bold, light وجود دارد (براساس لیستت)
-        familyFromRes(ctx, "estedad", listOf(
-            R.font.estedad_regular to FontWeight.Normal,
-            R.font.estedad_medium to FontWeight.Medium,
-            R.font.estedad_bold to FontWeight.Bold,
-            R.font.estedad_light to FontWeight.Light,
-            R.font.estedad_black to FontWeight.Black
-        ))?.let { out += Entry("estedad", "استعداد", it) }
-
-        // vazirmatn: مجموعه کامل
-        familyFromRes(ctx, "vazirmatn", listOf(
-            R.font.vazirmatn_regular to FontWeight.Normal,
-            R.font.vazirmatn_medium to FontWeight.Medium,
-            R.font.vazirmatn_bold to FontWeight.Bold,
-            R.font.vazirmatn_light to FontWeight.Light,
-            R.font.vazirmatn_thin to FontWeight.Thin,
-            R.font.vazirmatn_black to FontWeight.Black
-        ))?.let { out += Entry("vazirmatn", "وزیرمتن", it) }
-
-        // iraniansans: یک فایل
-        familyFromRes(ctx, "iraniansans", listOf(
-            R.font.iraniansans to FontWeight.Normal
-        ))?.let { out += Entry("iraniansans", "ایرانیان‌سنس", it) }
-
-        // sahel: bold و black داری
-        familyFromRes(ctx, "sahel", listOf(
-            R.font.sahel_bold to FontWeight.Bold,
-            R.font.sahel_black to FontWeight.Black
-        ))?.let { out += Entry("sahel", "ساحل", it) }
-
-        return out
-    }
-
-    fun familyFor(ctx: Context, id: String?): FontFamily {
-        if (id.isNullOrBlank() || id == "system") return FontFamily.Default
-        val f = catalog(ctx).firstOrNull { it.id == id }?.family
-        return f ?: FontFamily.Default
+    // فونت انتخابی برای تم برنامه
+    // خروجی null یعنی فونت سیستم (بدون override)
+    fun familyFor(id: String?): FontFamily = when (id?.lowercase()) {
+        "estedad"     -> FontFamily(Font(R.font.estedad_regular))
+        "byekan"      -> FontFamily(Font(R.font.byekan))
+        "vazirmatn"   -> DefaultAppFontFamily // <--- تغییر: استفاده از فونت وزیرمتن با تمام وزن ها
+        "iraniansans" -> FontFamily(Font(R.font.iraniansans))
+        "sahel"       -> FontFamily(Font(R.font.sahel_bold))
+        else          -> FontFamily.Default // system
     }
 }

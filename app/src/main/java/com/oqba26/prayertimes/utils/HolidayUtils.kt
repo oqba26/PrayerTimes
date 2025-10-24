@@ -74,13 +74,17 @@ object HolidayUtils {
         result.mapValues { it.value.distinct() }.toSortedMap()
     }
 
+
     // ————— API تکمیلی: مناسبت‌های یک روز مشخص —————
+    @Suppress("unused")
+
     suspend fun getDayHolidays(
         context: Context,
         date: MultiDate
     ): List<String> = withContext(Dispatchers.Default) {
         val payload = loadPayload(context)
-        val (sy, sm, sd) = date.getShamsiParts()
+        val (_, sm, sd) = date.getShamsiParts()
+
         val mmdd = "${sm.toString().padStart(2, '0')}/${sd.toString().padStart(2, '0')}"
 
         val out = mutableListOf<String>()
@@ -102,6 +106,7 @@ object HolidayUtils {
         out.distinct()
     }
 
+    @Suppress("unused")
     fun clearCache() {
         cached = null
     }
@@ -123,7 +128,8 @@ object HolidayUtils {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "⛔ خطا در خواندن/پارس ${ASSET_FILE}", e)
+            Log.e(TAG, String.format("خطا در خواندن/پارس فایل %s", ASSET_FILE), e)
+
             val empty = HolidaysPayload(emptyMap(), emptyMap())
             cached = empty
             empty

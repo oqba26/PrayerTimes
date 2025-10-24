@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/collapsed_root_layout"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center_horizontal"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="12dp"
-    android:paddingBottom="12dp">
+    android:padding="8dp">
 
+    <!-- عنوان شمسی (fallback) -->
     <TextView
         android:id="@+id/tv_shamsi_full"
         android:layout_width="match_parent"
@@ -20,9 +19,22 @@
         android:includeFontPadding="false"
         android:maxLines="1"
         android:ellipsize="end"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         android:text="چهارشنبه ۵ شهریور ۱۴۰۴" />
 
-    <!-- قمری | میلادی در یک خط -->
+    <!-- عنوان شمسی (Bitmap) -->
+    <ImageView
+        android:id="@+id/iv_title_collapsed"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:paddingTop="4dp"
+        android:paddingBottom="2dp" />
+
+    <!-- قمری | میلادی در یک خط (fallback) -->
     <TextView
         android:id="@+id/tv_other_dates_collapsed"
         android:layout_width="match_parent"
@@ -35,25 +47,38 @@
         android:maxLines="1"
         android:ellipsize="end"
         android:textDirection="anyRtl"
+        android:paddingTop="2dp"
+        android:paddingBottom="4dp"
         android:autoSizeTextType="uniform"
         android:autoSizeMinTextSize="10sp"
         android:autoSizeMaxTextSize="13sp"
         android:autoSizeStepGranularity="1sp"
         android:text="۴ ربیع‌الاول ۱۴۴۷ | ۲۷ اوت ۲۰۲۵" />
 
-    <!-- وقت بعدی در خط بعد -->
+    <!-- قمری | میلادی (Bitmap) -->
+    <ImageView
+        android:id="@+id/iv_other_collapsed"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:visibility="gone"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:paddingTop="2dp"
+        android:paddingBottom="4dp" />
+
+    <!-- وقت بعدی - حذف شد -->
     <TextView
         android:id="@+id/tv_next_prayer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textSize="14sp"
-        android:textColor="#0D47A1"
-        android:textAlignment="center"
-        android:gravity="center"
-        android:includeFontPadding="false"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:text="وقت بعدی: طلوع بامداد ۰۳:۴۷" />
+        android:visibility="gone"
+        android:text="" />
+
+    <ImageView
+        android:id="@+id/iv_next_collapsed"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
 
 </LinearLayout>
