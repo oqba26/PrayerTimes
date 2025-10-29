@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- آیکن‌های تیره برای نویگیشن‌بار روی پس‌زمینه روشن (API 27+) -->
+    <style name="Theme.PrayerTimes.EdgeToEdge" parent="Theme.PrayerTimes.NoActionBar">
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

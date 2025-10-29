@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.oqba26.prayertimes.models.MultiDate
@@ -57,6 +58,7 @@ object NoteUtils {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     @SuppressLint("ScheduleExactAlarm")
     private fun scheduleExactAlarm(context: Context, triggerAtMillis: Long, pendingIntent: PendingIntent): Boolean {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -74,6 +76,7 @@ object NoteUtils {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     fun scheduleNoteReminder(context: Context, note: UserNote): Boolean {
         if (!note.notificationEnabled || note.reminderTimeMillis == null || note.reminderTimeMillis <= System.currentTimeMillis()) {
             cancelNoteReminder(context, note.id) // Cancel if disabled or past

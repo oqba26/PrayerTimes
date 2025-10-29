@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.media.MediaPlayer
 import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -16,6 +15,7 @@ import android.os.VibratorManager
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,12 +44,14 @@ import com.oqba26.prayertimes.models.Alarm
 import com.oqba26.prayertimes.receivers.AlarmReceiver
 import com.oqba26.prayertimes.theme.PrayerTimesTheme
 import com.oqba26.prayertimes.utils.AlarmUtils
+import androidx.core.net.toUri
 
 class AlarmRingingActivity : ComponentActivity() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         showOnLockScreen()
@@ -108,6 +110,7 @@ class AlarmRingingActivity : ComponentActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     @SuppressLint("MissingPermission")
     private fun startAlarmSoundAndVibration(alarm: Alarm) {
         if (alarm.vibrate) {
@@ -121,7 +124,7 @@ class AlarmRingingActivity : ComponentActivity() {
         }
 
         try {
-            val soundUri = alarm.ringtoneUri?.let { Uri.parse(it) } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            val soundUri = alarm.ringtoneUri?.toUri() ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(this@AlarmRingingActivity, soundUri)
                 isLooping = true
@@ -151,6 +154,7 @@ class AlarmRingingActivity : ComponentActivity() {
         vibrator?.cancel()
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     private fun snoozeAlarm(alarm: Alarm) {
         val snoozeTime = System.currentTimeMillis() + 10 * 60 * 1000 // 10 minutes
 

@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PrayerTimes" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:paddingVertical">4dp</item>
+
+    <style name="Theme.PrayerTimes.EdgeToEdge" parent="Theme.PrayerTimes.NoActionBar">
+        <!-- نگه‌داشتن شفافیت؛ مورد امن برای API 26 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- اختیاری: اگر خواستی آیکن‌های استاتوس‌بار تیره شوند، این را true کن.
+             (API 23+ در v26 مجاز است) -->
+        <!-- <item name="android:windowLightStatusBar">false</item> -->
     </style>
+
 </resources>

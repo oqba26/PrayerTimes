@@ -1,5 +1,6 @@
 package com.oqba26.prayertimes.receivers
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -57,6 +58,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
+    @SuppressLint("DefaultLocale", "FullScreenIntentPolicy")
     private fun showAlarmNotification(context: Context, alarm: com.oqba26.prayertimes.models.Alarm) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel(notificationManager)

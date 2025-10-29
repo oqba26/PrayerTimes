@@ -1,5 +1,7 @@
 package com.oqba26.prayertimes.theme
 
+import android.os.Build
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -8,8 +10,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -40,8 +44,9 @@ private val DarkColors = darkColorScheme(
     surfaceVariant = Color(0xFF23272E),
     onBackground = Color(0xFFE5E7EB),
     onSurface = Color(0xFFE5E7EB),
-    primary = Color(0xFF23272E),
-    onPrimary = Color(0xFFE5E7EB)
+    // 💜 رنگ اصلی تم تیره (بنفش)
+    primary = Color(0xFF4F378B),
+    onPrimary = Color(0xFFEADDFF)
 )
 
 @Immutable
@@ -85,22 +90,37 @@ private fun Typography.withFontFamily(family: FontFamily): Typography = Typograp
     labelSmall = labelSmall.copy(fontFamily = family),
 )
 
+val NavigationBarColor = Color.White
+
 @Composable
 fun PrayerTimesTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    appFontFamily: FontFamily = DefaultAppFontFamily, // استفاده از فونت پیش فرض برنامه
+    appFontFamily: FontFamily = DefaultAppFontFamily,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColors else LightColors
-    val diffLabelThemeColors = if (darkTheme) DarkDiffLabelColors else LightDiffLabelColors
-    val baseTypography = Typography() // ایجاد یک Typography پایه با فونت های پیش فرض Material
-    val typography = baseTypography.withFontFamily(appFontFamily) // اعمال فونت سفارشی به تمام سبک ها
+    val typography = Typography().withFontFamily(appFontFamily)
 
-    CompositionLocalProvider(LocalDiffLabelColors provides diffLabelThemeColors) {
+    CompositionLocalProvider(LocalDiffLabelColors provides if (darkTheme) DarkDiffLabelColors else LightDiffLabelColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = typography,
-            content = content
-        )
+            typography = typography
+        ) {
+            content()
+
+            // ✅ این بخش داخل MaterialTheme و درون محیط Compose قرار می‌گیرد
+            val view = LocalView.current
+            SideEffect {
+                val window = (view.context as? ComponentActivity)?.window
+                // رفع deprecated: بجای set به Int از apply استفاده می‌کنیم
+                window?.let {
+                    @Suppress("DEPRECATION")
+                    it.navigationBarColor = android.graphics.Color.WHITE
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        it.isNavigationBarContrastEnforced = true
+                    }
+                }
+            }
+        }
     }
 }

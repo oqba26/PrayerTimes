@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.PrayerTimes.EdgeToEdge" parent="Theme.PrayerTimes.NoActionBar">
+        <!-- اجازه رسم محتوا در ناحیه ناچ -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+
+</resources>

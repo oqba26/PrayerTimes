@@ -12,23 +12,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.view.WindowCompat
@@ -55,7 +52,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         startPrayerServiceIfNeeded()
 
-        // اعمال اولیه سیستم‌بارها مطابق تم موثر فعلی
+        // اعمال تنظیم نوار وضعیت و نوار پایین
         applySystemBars(isDarkThemeEffective())
 
         setContent {
@@ -80,13 +77,14 @@ class MainActivity : ComponentActivity() {
             val prayerSilentSettings by settingsViewModel.prayerSilentSettings.collectAsState()
 
             val appFontFamily = remember(fontId) { AppFonts.familyFor(fontId) }
+
             val isDarkTheme = when (themeId) {
                 "light" -> false
                 "dark" -> true
                 else -> isSystemInDarkTheme()
             }
 
-            // هماهنگی رنگ استاتوس‌بار و نویگیشن‌بار با تغییر تم
+            // هر بار که تم تغییر می‌کند، رنگ نوارها هم هماهنگ شود
             LaunchedEffect(isDarkTheme) {
                 applySystemBars(isDarkTheme)
             }
@@ -95,9 +93,11 @@ class MainActivity : ComponentActivity() {
                 DateUtils.setDefaultUsePersianNumbers(usePersianNumbers)
             }
 
+            // تابع راه‌اندازی مجدد سرویس‌ها
             val ctxRestart = remember(ctx) {
                 {
-                    val svcIntent = Intent(ctx, PrayerForegroundService::class.java).apply { action = "RESTART" }
+                    val svcIntent = Intent(ctx, PrayerForegroundService::class.java)
+                        .apply { action = "RESTART" }
                     ContextCompat.startForegroundService(ctx, svcIntent)
                 }
             }
@@ -109,7 +109,6 @@ class MainActivity : ComponentActivity() {
                     putString("themeId", newThemeId)
                     putBoolean("is_dark_theme", newThemeId == "dark")
                 }
-                // اعمال فوری تغییرات سیستم‌بار
                 applySystemBars(newThemeId == "dark")
                 ctxRestart()
                 notifyAllWidgetsExplicit(ctx, ModernWidgetProvider.ACTION_THEME_CHANGED)
@@ -126,7 +125,6 @@ class MainActivity : ComponentActivity() {
                 appFontFamily = appFontFamily
             ) {
                 Box(Modifier.fillMaxSize()) {
-
                     CalendarScreenEntryPoint(
                         viewModel = prayerViewModel,
                         onOpenSettings = { showSettings = true },
@@ -188,70 +186,43 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (showExitDialog) {
-                        androidx.compose.material3.AlertDialog(
-                            onDismissRequest = { showExitDialog = false },
-                            title = {
-                                Text(text = ": هشدار", textAlign = TextAlign.Right)
-                            },
-                            text = {
-                                Text(text = "شما در حال خروج از برنامه هستید. مطمئنید؟", textAlign = TextAlign.Right)
-                            },
-                            confirmButton = {
-                                androidx.compose.foundation.layout.Row(
-                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
-                                ) {
-                                    Button(
-                                        onClick = { showExitDialog = false },
-                                    ) { Text("خیر") }
-
-                                    Button(
-                                        onClick = {
-                                            showExitDialog = false
-                                            finish()
-                                        },
-                                    ) { Text("بله") }
-                                }
-                            },
-                            dismissButton = {}
+                        ExitConfirmDialog(
+                            isDark = isDarkTheme,
+                            onCancel = { showExitDialog = false },
+                            onConfirm = {
+                                showExitDialog = false
+                                finish()
+                            }
                         )
                     }
 
                     if (showWidgetPrompt) {
-                        androidx.compose.material3.AlertDialog(
-                            onDismissRequest = {
+                        WidgetPromptDialog(
+                            isDark = isDarkTheme,
+                            onNotNow = {
                                 showWidgetPrompt = false
                                 prefs.edit { putBoolean("widget_prompt_shown", true) }
                             },
-                            title = { Text(text = "افزودن ویجت") },
-                            text = { Text(text = "مایلید ویجت برنامه به صفحهٔ اصلی اضافه شود؟") },
-                            confirmButton = {
-                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                                    androidx.compose.foundation.layout.Row(
-                                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
-                                    ) {
-                                        Button(onClick = {
-                                            showWidgetPrompt = false
-                                            prefs.edit { putBoolean("widget_prompt_shown", true) }
-                                        }) { Text("الان نه") }
-
-                                        Button(onClick = {
-                                            showWidgetPrompt = false
-                                            prefs.edit { putBoolean("widget_prompt_shown", true) }
-                                            requestPinHomeWidget(ctx)
-                                        }) { Text("بله، اضافه کن") }
-                                    }
-                                }
+                            onAdd = {
+                                showWidgetPrompt = false
+                                prefs.edit { putBoolean("widget_prompt_shown", true) }
+                                requestPinHomeWidget(ctx)
                             }
                         )
                     }
                 }
             }
         }
+
+        // ✳️ بعد از ساخت UI۔
+        // نوار پایین را همیشه سفید نگه دارد
+        window.navigationBarColor = android.graphics.Color.WHITE
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.isAppearanceLightNavigationBars = true
     }
 
     override fun onResume() {
         super.onResume()
-        // اطمینان از اعمال تنظیمات سیستم‌بار پس از بازگشت
         applySystemBars(isDarkThemeEffective())
     }
 
@@ -280,46 +251,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // تعیین تم موثر فعلی: dark/light یا system
     private fun isDarkThemeEffective(): Boolean {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         return when (prefs.getString("themeId", "system")) {
             "dark" -> true
             "light" -> false
             else -> {
-                (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                        Configuration.UI_MODE_NIGHT_YES
             }
         }
     }
 
-    // سیستم‌بارها:
-    // - StatusBar هم‌رنگ تاپ‌بار و تا لبهٔ بالا کشیده می‌شود
-    // - NavigationBar همیشه سفید و بدون تاثیر از تم برنامه
     private fun applySystemBars(isDarkTheme: Boolean) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-
-        // رنگ استاتوس‌بار مطابق تاپ‌بار (روشن/تیره)
         val statusColor = if (isDarkTheme) 0xFF4F378B.toInt() else 0xFF0E7490.toInt()
         window.statusBarColor = statusColor
-
-        // نویگیشن‌بار: همیشه سفید، آیکن‌ها تیره (Light Navigation Bars)
         window.navigationBarColor = android.graphics.Color.WHITE
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = true
-        }
-
         val controller = WindowCompat.getInsetsController(window, window.decorView)
-        // روی رنگ‌های ما، آیکن‌های استاتوس‌بار باید روشن باشند
         controller.isAppearanceLightStatusBars = false
-        // روی نویگیشن‌بار سفید، آیکن‌ها باید تیره باشند
         controller.isAppearanceLightNavigationBars = true
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val lp = window.attributes
-            lp.layoutInDisplayCutoutMode =
-                android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            window.attributes = lp
-        }
     }
 }
 
@@ -341,4 +292,132 @@ private fun updateAllWidgetsNow(ctx: Context) {
         putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
     }
     ctx.sendBroadcast(intent)
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExitConfirmDialog(
+    isDark: Boolean,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val headerColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
+    val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
+
+    BasicAlertDialog(onDismissRequest = onCancel) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .background(headerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("هشدار", color = headerTextColor, style = MaterialTheme.typography.titleLarge)
+                }
+
+                Text(
+                    "شما در حال خروج از برنامه هستید. مطمئنید؟",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    textAlign = TextAlign.Right
+                )
+
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Button(
+                            onClick = onCancel,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = headerColor,
+                                contentColor = headerTextColor
+                            )
+                        ) { Text("خیر") }
+
+                        Button(
+                            onClick = onConfirm,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            )
+                        ) { Text("بله") }
+                    }
+                }
+            }
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WidgetPromptDialog(
+    isDark: Boolean,
+    onNotNow: () -> Unit,
+    onAdd: () -> Unit
+) {
+    val headerColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
+    val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
+
+    BasicAlertDialog(onDismissRequest = onNotNow) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .background(headerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("افزودن ویجت", color = headerTextColor, style = MaterialTheme.typography.titleLarge)
+                }
+
+                Text(
+                    "مایلید ویجت برنامه به صفحهٔ اصلی اضافه شود؟",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    textAlign = TextAlign.Right
+                )
+
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Button(
+                            onClick = onNotNow,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = headerColor,
+                                contentColor = headerTextColor
+                            )
+                        ) { Text("الان نه") }
+
+                        Button(
+                            onClick = onAdd,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) { Text("بله، اضافه کن") }
+                    }
+                }
+            }
+        }
+    }
 }

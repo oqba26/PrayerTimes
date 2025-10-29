@@ -1,6 +1,5 @@
 package com.oqba26.prayertimes.activities
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
 import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.models.UserNote
 import com.oqba26.prayertimes.screens.widgets.CreateEditNoteScreen
@@ -42,8 +42,33 @@ class NoteEditorActivity : ComponentActivity() {
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Edge-to-edge مثل Settings
+        window.apply {
+            WindowCompat.setDecorFitsSystemWindows(this, false)
+
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
+            val insets = WindowCompat.getInsetsController(window, window.decorView)
+            // پس‌زمینه تاپ‌بار تیره است => آیکن‌های استاتوس‌بار روشن بمونه
+            insets.isAppearanceLightStatusBars = false
+            // پس‌زمینه نویگیشن سفید/روشنه => آیکن‌های نویگیشن تیره بشن
+            insets.isAppearanceLightNavigationBars = true
+
+            // ف allback برای API < 27 (قابلیت آیکن تیره ندارن)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) {
+                // رنگ نویگیشن رو تیره کن تا آیکن‌های سفید دیده بشن
+                window.navigationBarColor = 0xFF111111.toInt() // یا Color.BLACK
+            }
+
+            @Suppress("DEPRECATION")
+            statusBarColor = android.graphics.Color.TRANSPARENT
+        }
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
 
         initialShamsiDateString = intent.getStringExtra(EXTRA_SHAMSI_DATE_STRING)
         existingUserNote = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -58,7 +83,8 @@ class NoteEditorActivity : ComponentActivity() {
             return
         }
         try {
-            val parts = initialShamsiDateString!!.split("-").map { it.toInt() }
+            val noteIdToParse = existingUserNote?.id ?: initialShamsiDateString!!
+            val parts = noteIdToParse.split("-").map { it.toInt() }
             initialNoteDate = DateUtils.createMultiDateFromShamsi(parts[0], parts[1], parts[2])
         } catch (e: Exception) {
             Log.e("NoteEditorActivity", "Error parsing date string", e)
@@ -110,6 +136,14 @@ class NoteEditorActivity : ComponentActivity() {
                                     updatedAt = System.currentTimeMillis()
                                 )
                                 resultIntent.putExtra(EXTRA_SAVED_USER_NOTE, savedUserNote)
+                                finishWithResult(RESULT_OK, resultIntent)
+                            }
+                        },
+                        onDeleteClick = {
+                            if (existingUserNote != null) {
+                                val resultIntent = Intent().apply {
+                                    putExtra(EXTRA_DELETED_NOTE_ID, existingUserNote!!.id)
+                                }
                                 finishWithResult(RESULT_OK, resultIntent)
                             }
                         }

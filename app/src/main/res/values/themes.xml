@@ -1,23 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
+
+    <!-- تم اصلی برنامه -->
     <style name="Theme.PrayerTimes" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- رنگ‌ها و سایر استایل‌ها -->
+        <!-- رنگ‌های نمونه؛ در صورت نیاز با رنگ‌های خودتان جایگزین کنید -->
         <item name="colorPrimary">@color/md_theme_light_primary</item>
         <item name="colorPrimaryVariant">@color/md_theme_light_primary_variant</item>
         <item name="colorOnPrimary">@color/md_theme_light_onPrimary</item>
         <item name="colorSecondary">@color/md_theme_light_secondary</item>
         <item name="colorOnSecondary">@color/md_theme_light_onSecondary</item>
-
-        <!-- بجای android:paddingVertical که نیاز به API 26 دارد از separate padding top و bottom استفاده کن -->
-        <item name="android:paddingTop">4dp</item>
-        <item name="android:paddingBottom">4dp</item>
-
-        <!-- سایر تنظیمات لازم -->
+        <!-- هیچ padding سراسری روی تم نگذارید -->
     </style>
 
+    <!-- تم بدون اکشن‌بار -->
     <style name="Theme.PrayerTimes.NoActionBar" parent="Theme.PrayerTimes">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
+    </style>
+
+    <!-- تم Edge-to-Edge (عمومی) -->
+    <style name="Theme.PrayerTimes.EdgeToEdge" parent="Theme.PrayerTimes.NoActionBar">
+        <!-- نسخه فریم‌ورک این خصیصه‌ها را در API 21+ پشتیبانی می‌کند -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
 </resources>

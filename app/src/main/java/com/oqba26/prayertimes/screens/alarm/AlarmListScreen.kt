@@ -1,5 +1,6 @@
 package com.oqba26.prayertimes.screens.alarm
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,16 +24,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oqba26.prayertimes.R
 import com.oqba26.prayertimes.models.Alarm
@@ -47,41 +48,84 @@ fun AlarmListScreen(
     onToggleAlarm: (Alarm, Boolean) -> Unit
 ) {
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(id = R.string.alarms_title), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        },
+        contentWindowInsets = WindowInsets(0),
+        topBar = { AlarmListTopBar() },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddAlarm) {
+            FloatingActionButton(
+                onClick = onAddAlarm,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.navigationBarsPadding()
+            ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.add_alarm))
             }
         }
     ) { padding ->
         if (alarms.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text(stringResource(id = R.string.no_alarms_set), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(id = R.string.no_alarms_set),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .navigationBarsPadding(),
                 contentPadding = PaddingValues(16.dp)
             ) {
                 items(alarms, key = { it.id }) {
-                    AlarmItem(alarm = it, onClick = { onAlarmClick(it) }, onToggle = { enabled -> onToggleAlarm(it, enabled) })
+                    AlarmItem(
+                        alarm = it,
+                        onClick = { onAlarmClick(it) },
+                        onToggle = { enabled -> onToggleAlarm(it, enabled) }
+                    )
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AlarmListTopBar() {
+    val bg = MaterialTheme.colorScheme.primary
+    val fg = MaterialTheme.colorScheme.onPrimary
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(bg)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .height(56.dp)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stringResource(id = R.string.alarms_title),
+                color = fg,
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+
+@SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AlarmItem(
@@ -103,7 +147,10 @@ private fun AlarmItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = String.format("%02d:%02d", alarm.hour, alarm.minute),
+                    text = com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers(
+                        String.format(java.util.Locale.US, "%02d:%02d", alarm.hour, alarm.minute),
+                        enabled = true
+                    ),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
                 )

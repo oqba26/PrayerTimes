@@ -12,35 +12,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -82,65 +78,89 @@ private fun isFriday(year: Int, month: Int, day: Int): Boolean {
     return DateUtils.getWeekDayName(multiDate) == "جمعه"
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun YearPickerDialog(
     initialYear: Int,
     onDismissRequest: () -> Unit,
     onYearSelected: (Int) -> Unit,
-    usePersianNumbers: Boolean
+    usePersianNumbers: Boolean,
+    isDark: Boolean
 ) {
     val currentShamsiYear = DateUtils.getCurrentDate().getShamsiParts().first
     val startYear = 1320
     val endYear = currentShamsiYear + 50
     val years = remember { (startYear..endYear).toList().reversed() }
-    val listState = rememberLazyListState()
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     LaunchedEffect(initialYear) {
         val index = years.indexOf(initialYear)
-        if (index != -1) {
-            listState.scrollToItem(index = index)
-        }
+        if (index != -1) listState.scrollToItem(index)
     }
 
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        title = {
-            Text(
-                "انتخاب سال شمسی",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.titleMedium
-            )
-        },
-        text = {
-            Box(modifier = Modifier.height(300.dp)) {
-                LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
-                    items(years) { year ->
-                        val yearLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(year.toString()) else year.toString()
-                        Text(
-                            text = yearLabel,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onYearSelected(year); onDismissRequest() }
-                                .padding(vertical = 12.dp),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+    val headerColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
+    val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
+
+    BasicAlertDialog(onDismissRequest = onDismissRequest) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.fillMaxWidth(0.9f)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .background(headerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("انتخاب سال شمسی", color = headerTextColor, style = MaterialTheme.typography.titleLarge)
+                }
+
+                Box(modifier = Modifier.height(300.dp)) {
+                    androidx.compose.foundation.lazy.LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
+                        items(years.size) { idx ->
+                            val year = years[idx]
+                            val yearLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(year.toString()) else year.toString()
+                            Text(
+                                text = yearLabel,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onYearSelected(year); onDismissRequest() }
+                                    .padding(vertical = 12.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+                    ) {
+                        Button(
+                            onClick = onDismissRequest,
+                            modifier = Modifier.align(Alignment.CenterStart),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = headerColor,
+                                contentColor = headerTextColor
+                            )
+                        ) { Text("بستن") }
                     }
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                TextButton(onClick = onDismissRequest) { Text("بستن") }
-            }
-        },
-        modifier = Modifier.fillMaxWidth(0.8f)
-    )
+        }
+    }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Suppress("UNUSED_PARAMETER")
 fun ShamsiDatePicker(
@@ -175,7 +195,8 @@ fun ShamsiDatePicker(
             initialYear = displayedShamsiYear,
             onDismissRequest = { showYearPickerDialog = false },
             onYearSelected = { year -> displayedShamsiYear = year; showYearPickerDialog = false },
-            usePersianNumbers = usePersianNumbers
+            usePersianNumbers = usePersianNumbers,
+            isDark = isDarkTheme // اگر YearPickerDialog هنوز isDark ندارد، این پارامتر را حذف کن
         )
     }
 
@@ -190,160 +211,200 @@ fun ShamsiDatePicker(
                 tonalElevation = 6.dp,
                 modifier = Modifier.fillMaxWidth(0.95f)
             ) {
+                val headerColor = if (isDarkTheme) Color(0xFF4F378B) else Color(0xFF0E7490)
+                val headerTextColor = if (isDarkTheme) Color(0xFFEADDFF) else Color.White
+
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    Column(modifier = Modifier.fillMaxWidth()) {
+
+                        // هدر تمام‌عرض مثل اپ‌بار
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .background(headerColor),
+                            contentAlignment = Alignment.Center
                         ) {
-                            IconButton(onClick = {
-                                displayedShamsiMonth--
-                                if (displayedShamsiMonth < 1) {
-                                    displayedShamsiMonth = 12; displayedShamsiYear--
+                            Text(
+                                text = "انتخاب تاریخ شمسی",
+                                color = headerTextColor,
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                        }
+
+                        // محتوای قبلی با پدینگ داخلی
+                        Column(modifier = Modifier.padding(16.dp)) {
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = {
+                                    displayedShamsiMonth--
+                                    if (displayedShamsiMonth < 1) {
+                                        displayedShamsiMonth = 12; displayedShamsiYear--
+                                    }
+                                }) {
+                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "ماه قبل")
                                 }
-                            }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "ماه قبل")
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clickable { showMonthPicker = true }
+                                                .padding(horizontal = 8.dp)
+                                        ) {
+                                            Text(getShamsiMonthNameLocal(displayedShamsiMonth), style = MaterialTheme.typography.titleMedium)
+                                            Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب ماه")
+                                        }
+                                        DropdownMenu(
+                                            expanded = showMonthPicker,
+                                            onDismissRequest = { showMonthPicker = false },
+                                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp))
+                                        ) {
+                                            (1..12).forEach { month ->
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            getShamsiMonthNameLocal(month),
+                                                            textAlign = TextAlign.Center,
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        )
+                                                    },
+                                                    onClick = {
+                                                        displayedShamsiMonth = month
+                                                        showMonthPicker = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(0.dp))
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
-                                            .clickable { showMonthPicker = true }
+                                            .clickable { showYearPickerDialog = true }
                                             .padding(horizontal = 8.dp)
                                     ) {
-                                        Text(getShamsiMonthNameLocal(displayedShamsiMonth), style = MaterialTheme.typography.titleMedium)
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب ماه")
+                                        val yearLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(displayedShamsiYear.toString()) else displayedShamsiYear.toString()
+                                        Text(yearLabel, style = MaterialTheme.typography.titleMedium)
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب سال")
                                     }
-                                    DropdownMenu(
-                                        expanded = showMonthPicker,
-                                        onDismissRequest = { showMonthPicker = false },
-                                        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp))
+                                }
+                                IconButton(onClick = {
+                                    displayedShamsiMonth++
+                                    if (displayedShamsiMonth > 12) {
+                                        displayedShamsiMonth = 1; displayedShamsiYear++
+                                    }
+                                }) {
+                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "ماه بعد")
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                val daysOfWeek = listOf("ش", "ی", "د", "س", "چ", "پ", "ج")
+                                daysOfWeek.forEach { dayLabel ->
+                                    Text(dayLabel, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                }
+                            }
+
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(7),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 240.dp, max = 280.dp),
+                                horizontalArrangement = Arrangement.SpaceAround,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                items(getDayOfWeekOffsetLocal(displayedShamsiYear, displayedShamsiMonth)) {
+                                    Spacer(Modifier.aspectRatio(1f).padding(2.dp))
+                                }
+                                items(DateUtils.daysInShamsiMonth(displayedShamsiYear, displayedShamsiMonth)) { dayIndex ->
+                                    val dayNumber = dayIndex + 1
+                                    val isSelected = (dayNumber == selectedUserClickedDay)
+
+                                    val currentDate = DateUtils.getCurrentDate()
+                                    val isCurrentDayToday = dayNumber == currentDate.getShamsiParts().third &&
+                                            displayedShamsiMonth == currentDate.getShamsiParts().second &&
+                                            displayedShamsiYear == currentDate.getShamsiParts().first
+                                    val isDayFriday = isFriday(displayedShamsiYear, displayedShamsiMonth, dayNumber)
+
+                                    val backgroundColor = when {
+                                        isSelected && isDarkTheme -> DarkThemeSelectedDayBackground
+                                        isSelected && !isDarkTheme -> MaterialTheme.colorScheme.primary
+                                        isCurrentDayToday -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                        else -> Color.Transparent
+                                    }
+                                    val textColor = when {
+                                        isSelected && isDarkTheme -> DarkThemeSelectedDayText
+                                        isSelected && !isDarkTheme -> MaterialTheme.colorScheme.onPrimary
+                                        isDayFriday -> Color.Red
+                                        isCurrentDayToday -> MaterialTheme.colorScheme.onSecondaryContainer
+                                        else -> MaterialTheme.colorScheme.onSurface
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .aspectRatio(1f)
+                                            .padding(2.dp)
+                                            .clip(CircleShape)
+                                            .background(backgroundColor)
+                                            .clickable { selectedUserClickedDay = dayNumber },
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        (1..12).forEach { month ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text(
-                                                        getShamsiMonthNameLocal(month),
-                                                        textAlign = TextAlign.Center,
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    )
-                                                },
-                                                onClick = {
-                                                    displayedShamsiMonth = month
-                                                    showMonthPicker = false
-                                                }
-                                            )
-                                        }
+                                        val dayLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(dayNumber.toString()) else dayNumber.toString()
+                                        Text(dayLabel, color = textColor, style = MaterialTheme.typography.bodyMedium)
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(0.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clickable { showYearPickerDialog = true }
-                                        .padding(horizontal = 8.dp)
-                                ) {
-                                    val yearLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(displayedShamsiYear.toString()) else displayedShamsiYear.toString()
-                                    Text(yearLabel, style = MaterialTheme.typography.titleMedium)
-                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب سال")
-                                }
+                                val monthDayCount = DateUtils.daysInShamsiMonth(displayedShamsiYear, displayedShamsiMonth)
+                                val offset = getDayOfWeekOffsetLocal(displayedShamsiYear, displayedShamsiMonth)
+                                val remainingCells = (7 - ((offset + monthDayCount) % 7)) % 7
+                                items(remainingCells) { Spacer(Modifier.aspectRatio(1f).padding(2.dp)) }
                             }
-                            IconButton(onClick = {
-                                displayedShamsiMonth++
-                                if (displayedShamsiMonth > 12) {
-                                    displayedShamsiMonth = 1; displayedShamsiYear++
-                                }
-                            }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "ماه بعد")
-                            }
-                        }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceAround
-                        ) {
-                            val daysOfWeek = listOf("ش", "ی", "د", "س", "چ", "پ", "ج")
-                            daysOfWeek.forEach { dayLabel ->
-                                Text(dayLabel, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                            }
-                        }
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(7),
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp, max = 280.dp),
-                            horizontalArrangement = Arrangement.SpaceAround,
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            items(getDayOfWeekOffsetLocal(displayedShamsiYear, displayedShamsiMonth)) {
-                                Spacer(Modifier.aspectRatio(1f).padding(2.dp))
-                            }
-                            items(DateUtils.daysInShamsiMonth(displayedShamsiYear, displayedShamsiMonth)) { dayIndex ->
-                                val dayNumber = dayIndex + 1
-                                val isSelected = (dayNumber == selectedUserClickedDay)
-
-                                val currentDate = DateUtils.getCurrentDate()
-                                val isCurrentDayToday = dayNumber == currentDate.getShamsiParts().third &&
-                                        displayedShamsiMonth == currentDate.getShamsiParts().second &&
-                                        displayedShamsiYear == currentDate.getShamsiParts().first
-                                val isDayFriday = isFriday(displayedShamsiYear, displayedShamsiMonth, dayNumber)
-
-                                val backgroundColor = when {
-                                    isSelected && isDarkTheme -> DarkThemeSelectedDayBackground
-                                    isSelected && !isDarkTheme -> MaterialTheme.colorScheme.primary
-                                    isCurrentDayToday -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                                    else -> Color.Transparent
-                                }
-                                val textColor = when {
-                                    isSelected && isDarkTheme -> DarkThemeSelectedDayText
-                                    isSelected && !isDarkTheme -> MaterialTheme.colorScheme.onPrimary
-                                    isDayFriday -> Color.Red
-                                    isCurrentDayToday -> MaterialTheme.colorScheme.onSecondaryContainer
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                }
-
+                            // دکمه‌ها: «انصراف» چپ (قرمز)، «تایید» راست (هم‌رنگ هدر)
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                                 Box(
                                     modifier = Modifier
-                                        .aspectRatio(1f)
-                                        .padding(2.dp)
-                                        .clip(CircleShape)
-                                        .background(backgroundColor)
-                                        .clickable { selectedUserClickedDay = dayNumber },
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
+                                        .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
                                 ) {
-                                    val dayLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(dayNumber.toString()) else dayNumber.toString()
-                                    Text(dayLabel, color = textColor, style = MaterialTheme.typography.bodyMedium)
+                                    // انصراف = قرمز
+                                    Button(
+                                        onClick = onDismiss,
+                                        modifier = Modifier.align(Alignment.CenterStart),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        )
+                                    ) { Text("انصراف") }
+
+                                    // تایید = هم‌رنگ هدر (آبی فیروزه‌ای/بنفش تیره)
+                                    Button(
+                                        onClick = {
+                                            val resultDate = DateUtils.createMultiDateFromShamsi(
+                                                displayedShamsiYear, displayedShamsiMonth, selectedUserClickedDay
+                                            )
+                                            onDateSelected(resultDate)
+                                        },
+                                        modifier = Modifier.align(Alignment.CenterEnd),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = headerColor,
+                                            contentColor = headerTextColor
+                                        )
+                                    ) { Text("تایید") }
                                 }
-                            }
-                            val monthDayCount = DateUtils.daysInShamsiMonth(displayedShamsiYear, displayedShamsiMonth)
-                            val offset = getDayOfWeekOffsetLocal(displayedShamsiYear, displayedShamsiMonth)
-                            val remainingCells = (7 - ((offset + monthDayCount) % 7)) % 7
-                            items(remainingCells) { Spacer(Modifier.aspectRatio(1f).padding(2.dp)) }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start)
-                        ) {
-                            Button(
-                                onClick = {
-                                    val resultDate = DateUtils.createMultiDateFromShamsi(displayedShamsiYear, displayedShamsiMonth, selectedUserClickedDay)
-                                    onDateSelected(resultDate)
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("تایید", color = Color.White)
-                            }
-                            Button(
-                                onClick = onDismiss,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336)),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("انصراف", color = Color.White)
                             }
                         }
                     }

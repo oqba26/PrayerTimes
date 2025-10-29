@@ -11,6 +11,7 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.IBinder
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.oqba26.prayertimes.R
@@ -30,7 +31,7 @@ class AdhanPlayerService : Service() {
                 action = ACTION_PLAY
                 putExtra(EXTRA_PRAYER_ID, prayerId)
             }
-            // استفاده از ContextCompat برای سازگاری با همه APIها
+            // استفاده از ContextCompat برای سازگاری با همه API ها
             ContextCompat.startForegroundService(context, intent)
         }
 
@@ -50,6 +51,7 @@ class AdhanPlayerService : Service() {
         ensureChannel()
     }
 
+    @RequiresApi(Build.VERSION_CODES.N)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
@@ -67,6 +69,7 @@ class AdhanPlayerService : Service() {
         return START_NOT_STICKY
     }
 
+    @RequiresApi(Build.VERSION_CODES.N)
     private fun startPlayback(resId: Int) {
         stopPlayback()
         val attrs = AudioAttributes.Builder()

@@ -7,10 +7,9 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,11 +20,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,18 +36,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.edit
 import com.oqba26.prayertimes.activities.AlarmActivity
 import com.oqba26.prayertimes.activities.NoteEditorActivity
@@ -201,6 +207,7 @@ fun CalendarScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
+
             ) {
                 when (currentViewMode) {
                     ViewMode.PRAYER_TIMES -> {
@@ -249,7 +256,11 @@ fun CalendarScreen(
                                 }
                             },
                             isDarkThemeActive = isDarkThemeActive,
-                            usePersianNumbers = usePersianNumbers
+                            usePersianNumbers = usePersianNumbers,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = innerPadding.calculateBottomPadding()) // فقط اینجا
+
                         )
                     }
                 }
@@ -269,6 +280,7 @@ fun CalendarScreen(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.M)
 @Composable
 fun CalendarScreenEntryPoint(
     viewModel: PrayerViewModel,
@@ -303,6 +315,7 @@ fun CalendarScreenEntryPoint(
 
     if (showXiaomiPermissionDialog) {
         XiaomiPermissionDialog(
+            isDark = isDarkThemeActive,
             onDismiss = { showXiaomiPermissionDialog = false },
             onGoToSettings = {
                 showXiaomiPermissionDialog = false
@@ -319,9 +332,7 @@ fun CalendarScreenEntryPoint(
                             data = Uri.fromParts("package", context.packageName, null)
                         }
                         context.startActivity(intent)
-                    } catch (_: Exception) {
-                        // ignore
-                    }
+                    } catch (_: Exception) { }
                 }
             }
         )
@@ -338,10 +349,16 @@ fun CalendarScreenEntryPoint(
 
             val deletedNoteId = intentData.getStringExtra(NoteEditorActivity.EXTRA_DELETED_NOTE_ID)
             if (deletedNoteId != null) {
-                NoteUtils.cancelNoteReminder(context, deletedNoteId)
-                newNotesMap.remove(deletedNoteId)
-                noteModified = true
-                toastMessage = "یادداشت حذف شد"
+                val noteToRemove = userNotesMapState.values.find { it.id == deletedNoteId }
+                if(noteToRemove != null){
+                    val dateParts = noteToRemove.id.split('-').map { it.toInt() }
+                    val multiDate = DateUtils.createMultiDateFromShamsi(dateParts[0], dateParts[1], dateParts[2])
+                    val noteKey = NoteUtils.formatDateToKey(multiDate)
+                    NoteUtils.cancelNoteReminder(context, deletedNoteId)
+                    newNotesMap.remove(noteKey)
+                    noteModified = true
+                    toastMessage = "یادداشت حذف شد"
+                }
             }
 
             val savedNote: UserNote? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -358,8 +375,10 @@ fun CalendarScreenEntryPoint(
                 if (!reminderScheduled) {
                     showExactAlarmPermissionDialog = true
                 }
-
-                newNotesMap[savedNote.id] = savedNote
+                val dateParts = savedNote.id.split('-').map { it.toInt() }
+                val multiDate = DateUtils.createMultiDateFromShamsi(dateParts[0], dateParts[1], dateParts[2])
+                val noteKey = NoteUtils.formatDateToKey(multiDate)
+                newNotesMap[noteKey] = savedNote
                 noteModified = true
                 toastMessage = if (toastMessage == null) "یادداشت ذخیره شد" else "یادداشت منتقل و ذخیره شد"
             }
@@ -374,13 +393,18 @@ fun CalendarScreenEntryPoint(
 
     if (noteIdToDeleteDialog != null) {
         CustomConfirmDeleteDialog(
+            isDark = isDarkThemeActive,
             onDismissRequest = { noteIdToDeleteDialog = null },
             onConfirmDelete = {
-                val noteId = noteIdToDeleteDialog!!
-                NoteUtils.cancelNoteReminder(context, noteId)
-                userNotesMapState = userNotesMapState.toMutableMap().apply { remove(noteId) }.toMap()
-                NoteUtils.saveNotesInternal(context, userNotesMapState)
-                Toast.makeText(context, "یادداشت حذف شد", Toast.LENGTH_SHORT).show()
+                val noteKey = noteIdToDeleteDialog!!
+                val noteToRemove = userNotesMapState[noteKey]
+
+                if (noteToRemove != null) {
+                    NoteUtils.cancelNoteReminder(context, noteToRemove.id)
+                    userNotesMapState = userNotesMapState.toMutableMap().apply { remove(noteKey) }.toMap()
+                    NoteUtils.saveNotesInternal(context, userNotesMapState)
+                    Toast.makeText(context, "یادداشت حذف شد", Toast.LENGTH_SHORT).show()
+                }
                 noteIdToDeleteDialog = null
             }
         )
@@ -388,6 +412,7 @@ fun CalendarScreenEntryPoint(
 
     if (showExactAlarmPermissionDialog) {
         ExactAlarmPermissionDialog(
+            isDark = isDarkThemeActive,
             onDismiss = { showExactAlarmPermissionDialog = false },
             onGoToSettings = {
                 showExactAlarmPermissionDialog = false
@@ -436,118 +461,233 @@ fun CalendarScreenEntryPoint(
                 )
             )
         },
-        onEditNoteRequest = { noteId, noteToEdit ->
+        onEditNoteRequest = { _, noteToEdit ->
             noteEditorLauncher.launch(
                 NoteEditorActivity.newIntent(
                     context,
-                    noteId,
+                    noteToEdit.id,
                     noteToEdit,
                     isDarkThemeActive
                 )
             )
         },
-        onDeleteNoteRequest = { noteId -> noteIdToDeleteDialog = noteId },
+        onDeleteNoteRequest = {
+            val noteKey = NoteUtils.formatDateToKey(currentDate)
+            noteIdToDeleteDialog = noteKey
+         },
         usePersianNumbers = usePersianNumbers,
         use24HourFormat = use24HourFormat
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomConfirmDeleteDialog(onDismissRequest: () -> Unit, onConfirmDelete: () -> Unit) {
-    Dialog(onDismissRequest = onDismissRequest) {
+fun CustomConfirmDeleteDialog(
+    isDark: Boolean,
+    onDismissRequest: () -> Unit,
+    onConfirmDelete: () -> Unit
+) {
+    val headerColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
+    val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
+
+    BasicAlertDialog(onDismissRequest = onDismissRequest) {
         Surface(
-            shape = MaterialTheme.shapes.medium,
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 6.dp,
             color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 6.dp
+            contentColor = MaterialTheme.colorScheme.onSurface
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "تایید حذف",
-                    style = MaterialTheme.typography.headlineSmall,
+            Column(modifier = Modifier.fillMaxWidth()) {
+
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    textAlign = TextAlign.Right
-                )
+                        .height(56.dp)
+                        .background(headerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("تایید حذف", color = headerTextColor, style = MaterialTheme.typography.titleLarge)
+                }
+
                 Text(
                     "آیا از حذف این یادداشت اطمینان دارید؟",
                     style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Right,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    textAlign = TextAlign.Right
+                        .padding(16.dp)
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Button(onClick = onDismissRequest) { Text("انصراف") }
-                    Button(onClick = onConfirmDelete) { Text("تایید") }
+
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+                    ) {
+                        // انصراف (چپ) هم‌رنگ هدر
+                        Button(
+                            onClick = onDismissRequest,
+                            modifier = Modifier.align(Alignment.CenterStart),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = headerColor,
+                                contentColor = headerTextColor
+                            )
+                        ) { Text("انصراف") }
+
+                        // تایید (راست) قرمز
+                        Button(
+                            onClick = onConfirmDelete,
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            )
+                        ) { Text("تایید") }
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExactAlarmPermissionDialog(onDismiss: () -> Unit, onGoToSettings: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                "نیاز به مجوز",
-                textAlign = TextAlign.Right,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        text = {
-            Text(
-                "برای اینکه یادآوری‌ها به درستی کار کنند، برنامه به مجوز \"آلارم‌ها و یادآوری‌ها\" نیاز دارد. لطفاً این مجوز را از تنظیمات برنامه فعال کنید.",
-                textAlign = TextAlign.Right
-            )
-        },
-        confirmButton = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TextButton(onClick = onDismiss) { Text("رد کردن") }
-                TextButton(onClick = onGoToSettings) { Text("رفتن به تنظیمات") }
+fun ExactAlarmPermissionDialog(
+    isDark: Boolean,
+    onDismiss: () -> Unit,
+    onGoToSettings: () -> Unit
+) {
+    val headerColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
+    val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
+
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .background(headerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "نیاز به مجوز",
+                        color = headerTextColor,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+
+                Text(
+                    "برای اینکه یادآوری‌ها به درستی کار کنند، برنامه به مجوز 'آلارم‌ها و یادآوری‌ها' نیاز دارد. لطفاً این مجوز را از تنظیمات برنامه فعال کنید.",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    textAlign = TextAlign.Right
+                )
+
+                androidx.compose.runtime.CompositionLocalProvider(
+                    LocalLayoutDirection provides LayoutDirection.Ltr
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+                    ) {
+                        // رد کردن (چپ) هم‌رنگ هدر
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier.align(Alignment.CenterStart),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = headerColor,
+                                contentColor = headerTextColor
+                            )
+                        ) { Text("رد کردن") }
+
+                        // رفتن به تنظیمات (راست)
+                        Button(
+                            onClick = onGoToSettings,
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        ) { Text("رفتن به تنظیمات") }
+                    }
+                }
             }
         }
-    )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun XiaomiPermissionDialog(onDismiss: () -> Unit, onGoToSettings: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                "مجوز مخصوص گوشی‌های شیائومی",
-                textAlign = TextAlign.Right,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        text = {
-            Text(
-                "برای اینکه زنگ هشدار به درستی روی صفحه قفل نمایش داده شود، لطفاً در صفحه بعد، مجوز «نمایش روی صفحه قفل» (Display on Lock screen) را فعال کنید.",
-                textAlign = TextAlign.Right,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TextButton(onClick = onDismiss) { Text("باشه") }
-                TextButton(onClick = onGoToSettings) { Text("رفتن به تنظیمات") }
+fun XiaomiPermissionDialog(
+    isDark: Boolean,
+    onDismiss: () -> Unit,
+    onGoToSettings: () -> Unit
+) {
+    val headerColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
+    val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
+
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .background(headerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "مجوز مخصوص گوشی‌های شیائومی",
+                        color = headerTextColor,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+
+                Text(
+                    text = "برای اینکه زنگ هشدار به درستی روی صفحه قفل نمایش داده شود، لطفاً در صفحه بعد، مجوز «نمایش روی صفحه قفل» (Display on Lock screen) را فعال کنید.",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    textAlign = TextAlign.Right
+                )
+
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+                    ) {
+                        // چپ: «باشه» با بک‌گراند هم‌رنگ هدر
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier.align(Alignment.CenterStart),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = headerColor,
+                                contentColor = headerTextColor
+                            )
+                        ) { Text("باشه") }
+
+                        // راست: رفتن به تنظیمات
+                        Button(
+                            onClick = onGoToSettings,
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        ) { Text("رفتن به تنظیمات") }
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 private fun buildRelativeDiffLabel(
@@ -575,7 +715,7 @@ private fun buildRelativeDiffLabel(
         if (usePersianNumbers) DateUtils.convertToPersianNumbers(s) else s
     }
 
-    val nNBSP = '\u202F'
+    val nNBSP = ' '
     val parts = mutableListOf<String>()
     if (diff.years != 0) parts.add("${num(diff.years)}${nNBSP}سال")
     if (diff.months != 0) parts.add("${num(diff.months)}${nNBSP}ماه")
@@ -583,9 +723,9 @@ private fun buildRelativeDiffLabel(
     if (parts.isEmpty()) return "امروز"
 
     val suffix = if (isAfter) "بعد" else "قبل"
-    val rLI = '\u2067'
-    val pDI = '\u2069'
-    val nBSP = '\u00A0'
+    val rLI = '⁧'
+    val pDI = '⁩'
+    val nBSP = ' '
     return "${rLI}${parts.joinToString(" و ")}$nBSP$suffix$pDI"
 
 }

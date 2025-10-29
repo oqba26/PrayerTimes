@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -29,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.models.UserNote
@@ -43,7 +44,7 @@ fun NotesOverviewScreen(
     onEditNoteClick: () -> Unit,
     onDeleteClick: () -> Unit,
     isDarkThemeActive: Boolean,
-    usePersianNumbers: Boolean, // Added usePersianNumbers parameter
+    usePersianNumbers: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -54,22 +55,24 @@ fun NotesOverviewScreen(
         contentAlignment = Alignment.Center
     ) {
         if (userNote != null) {
+            // حالت نمایش یادداشت موجود
             Card(
-                modifier = Modifier
-                    .fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(modifier = Modifier.fillMaxSize().padding(16.dp)) { // Box اصلی برای چیدمان روی هم
+
+                    // محتوای اسکرول شونده
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(bottom = 80.dp), // فضا برای دکمه‌های پایین
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top
+                    ) {
                         Text(
-                            // Apply usePersianNumbers to selectedDate.shamsi
                             text = "یادداشت برای: ${DateUtils.convertToPersianNumbers(selectedDate.shamsi, usePersianNumbers)}",
                             style = MaterialTheme.typography.titleMedium,
                             textAlign = TextAlign.Center,
@@ -77,24 +80,26 @@ fun NotesOverviewScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            // Content itself might or might not need number conversion based on its nature
-                            // If userNote.content can contain numbers that should be Persian, apply conversion.
-                            // For now, assuming content is primarily text.
                             text = DateUtils.convertToPersianNumbers(userNote.content, usePersianNumbers),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
-                            maxLines = 10,
-                            overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // دکمه‌های چسبیده به پایین
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         if (userNote.notificationEnabled && userNote.reminderTimeMillis != null) {
+                            val formattedTime = DateUtils.formatTimeMillis(userNote.reminderTimeMillis)
+                            val persianTime = DateUtils.convertToPersianNumbers(formattedTime, usePersianNumbers)
                             Text(
-                                // Apply usePersianNumbers to reminder time
-                                text = "یادآوری: ${DateUtils.convertToPersianNumbers(DateUtils.formatTimeMillis(userNote.reminderTimeMillis), usePersianNumbers)}",
+                                text = "یادآوری: $persianTime",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 modifier = Modifier.fillMaxWidth(),
@@ -115,32 +120,33 @@ fun NotesOverviewScreen(
                                 onClick = onDeleteClick,
                                 colors = ButtonDefaults.textButtonColors(contentColor = deleteButtonColor)
                             ) {
-                                Icon(Icons.Filled.Delete, contentDescription = DateUtils.convertToPersianNumbers("حذف یادداشت", usePersianNumbers), modifier = Modifier.size(ButtonDefaults.IconSize))
+                                Icon(Icons.Filled.Delete, contentDescription = "حذف یادداشت", modifier = Modifier.size(ButtonDefaults.IconSize))
                                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                                Text(DateUtils.convertToPersianNumbers("حذف", usePersianNumbers))
+                                Text("حذف")
                             }
                             Spacer(modifier = Modifier.padding(horizontal = 8.dp))
                             TextButton(
                                 onClick = onEditNoteClick,
                                 colors = ButtonDefaults.textButtonColors(contentColor = editButtonColor)
                             ) {
-                                Icon(Icons.Filled.Edit, contentDescription = DateUtils.convertToPersianNumbers("ویرایش یادداشت", usePersianNumbers), modifier = Modifier.size(ButtonDefaults.IconSize))
+                                Icon(Icons.Filled.Edit, contentDescription = "ویرایش یادداشت", modifier = Modifier.size(ButtonDefaults.IconSize))
                                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                                Text(DateUtils.convertToPersianNumbers("ویرایش", usePersianNumbers))
+                                Text("ویرایش")
                             }
                         }
                     }
                 }
             }
         } else {
-            Log.d("NotesOverviewScreen", "UserNote is null, showing FAB for date: ${DateUtils.convertToPersianNumbers(selectedDate.shamsi, usePersianNumbers)}")
+            // حالت افزودن یادداشت جدید
+            Log.d("NotesOverviewScreen", "یادداشتی برای ${DateUtils.convertToPersianNumbers(selectedDate.shamsi, usePersianNumbers)} وجود ندارد. نمایش دکمه افزودن.")
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxSize()
             ) {
                 Text(
-                    text = DateUtils.convertToPersianNumbers("برای افزودن یادداشت روی دکمه + کلیک کنید.", usePersianNumbers),
+                    text = "برای افزودن یادداشت روی دکمه + کلیک کنید.",
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onBackground
@@ -148,14 +154,14 @@ fun NotesOverviewScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 FloatingActionButton(
                     onClick = {
-                        Log.d("NotesOverviewScreen", "FAB onClick triggered")
+                        Log.d("NotesOverviewScreen", "دکمه افزودن یادداشت کلیک شد.")
                         onAddNoteClick()
                     },
                     modifier = Modifier.size(56.dp),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = DateUtils.convertToPersianNumbers("افزودن یادداشت جدید", usePersianNumbers), modifier = Modifier.size(24.dp))
+                    Icon(Icons.Filled.Add, contentDescription = "افزودن یادداشت جدید", modifier = Modifier.size(24.dp))
                 }
             }
         }

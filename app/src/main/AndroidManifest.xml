@@ -61,7 +61,8 @@
             android:name=".activities.NoteEditorActivity"
             android:label="@string/note_editor_title"
             android:exported="false"
-            android:theme="@style/Theme.PrayerTimes" />
+            android:theme="@style/Theme.PrayerTimes.EdgeToEdge"/>
+
 
         <!-- Services -->
         <service
