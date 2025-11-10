@@ -1,58 +1,58 @@
 package com.oqba26.prayertimes.services
 
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.PorterDuff
+import android.graphics.Rect
 import android.graphics.Typeface
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.content.getSystemService
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.graphics.toColorInt
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.oqba26.prayertimes.R
 import com.oqba26.prayertimes.adhan.AdhanScheduler
 import com.oqba26.prayertimes.models.MultiDate
+import com.oqba26.prayertimes.receivers.IqamaAlarmReceiver
+import com.oqba26.prayertimes.receivers.SilentModeReceiver
+import com.oqba26.prayertimes.screens.PrayerTime
 import com.oqba26.prayertimes.utils.DateUtils
 import com.oqba26.prayertimes.utils.PrayerUtils
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.oqba26.prayertimes.viewmodels.dataStore
+import com.oqba26.prayertimes.widget.LargeModernWidgetProvider
+import com.oqba26.prayertimes.widget.ModernWidgetProvider
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.roundToInt
 
+@Suppress("DEPRECATION")
 class PrayerForegroundService : Service() {
 
-    data class NotificationColors(
-        val primaryText: Int,
-        val secondaryText: Int,
-        val prayerTime: Int,
-        val prayerHighlight: Int,
-        val navButton: Int,
-        val todayButton: Int,
-        val navText: Int
-    )
-
     companion object {
-        private const val NOTIFICATION_ID = 1001
+        private const val NOTIF_ID = 1001
         private const val TAG = "PrayerService"
         private const val UPDATE_INTERVAL = 60_000L
         private const val ACTION_PREV = "PREV_DAY"
@@ -64,702 +64,484 @@ class PrayerForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var updateJob: Job? = null
-    private var cachedIconDay = -1
-    private var cachedIconColor = Color.WHITE
-    private var cachedIcon: IconCompat? = null
-    private var cachedUsePersianNumbers: Boolean? = null
     private var notifSelectedDate: MultiDate? = null
-
-    // برای جلوگیری از زمان‌بندی تکراری در طول روز
-    private var lastAdhanScheduledForDateKey: String? = null // اضافه شد
-    private var lastAdhanScheduledSignature: String? = null
-
-    private fun getNotificationColors(isDarkTheme: Boolean): NotificationColors {
-        return if (isDarkTheme) {
-            NotificationColors(
-                primaryText = Color.WHITE,
-                secondaryText = Color.LTGRAY,
-                prayerTime = "#80DEEA".toColorInt(),
-                prayerHighlight = "#FFF59D".toColorInt(),
-                navButton = "#78909C".toColorInt(),
-                todayButton = "#64B5F6".toColorInt(),
-                navText = Color.WHITE
-            )
-        } else {
-            NotificationColors(
-                primaryText = Color.BLACK,
-                secondaryText = Color.DKGRAY,
-                prayerTime = "#0D47A1".toColorInt(),
-                prayerHighlight = "#2E7D32".toColorInt(),
-                navButton = "#546E7A".toColorInt(),
-                todayButton = "#1976D2".toColorInt(),
-                navText = Color.WHITE
-            )
-        }
-    }
+    private var lastScheduleSignature: String? = null
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "onCreate: Service creating...")
-        try {
-            NotificationService.createNotificationChannels(this)
-            Log.d(TAG, "onCreate: Notification channels created/ensured.")
-        } catch (e: Exception) {
-            Log.e(TAG, "CRITICAL: Error in onCreate while creating notification channels", e)
-        }
-        Log.d(TAG, "onCreate: Service creation finished.")
+        NotificationService.createNotificationChannels(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action
-        Log.d(TAG, "onStartCommand: Received action: $action, flags: $flags, startId: $startId), intent: $intent")
-        try {
-            val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-            val usePersianNumbers = prefs.getBoolean("use_persian_numbers", true)
-            DateUtils.setDefaultUsePersianNumbers(usePersianNumbers)
-
-            val isDarkTheme = prefs.getBoolean("is_dark_theme", false)
-            Log.d(TAG, "onStartCommand: isDarkTheme=$isDarkTheme, usePersianNumbers=$usePersianNumbers")
-
-            when (action) {
-                "START", ACTION_START_FROM_BOOT_OR_UPDATE -> {
-                    serviceScope.launch { postOnce(isDarkTheme) }
-                    startUpdatingNotification(isDarkTheme)
-                }
-                ACTION_RESTART -> {
-                    // مهم: قفل روزانه را ریست کن تا همین الان دوباره زمان‌بندی شود
-                    lastAdhanScheduledForDateKey = null
-                    // اگر قبلاً lastAdhanScheduledSignature را طبق پیشنهاد اضافه کرده‌ای، این خط را هم فعال کن:
-                    // lastAdhanScheduledSignature = null
-
-                    notifSelectedDate = null // برگرد به امروز
-                    serviceScope.launch { postOnce(isDarkTheme) }
-                    startUpdatingNotification(isDarkTheme)
-                }
-                "STOP" -> {
-                    stopForegroundCompat()
-                    stopSelf()
-                }
-                ACTION_PREV -> {
-                    val base = notifSelectedDate ?: DateUtils.getCurrentDate()
-                    notifSelectedDate = DateUtils.getPreviousDate(base)
-                    serviceScope.launch { postOnce(isDarkTheme) }
-                }
-                ACTION_NEXT -> {
-                    val base = notifSelectedDate ?: DateUtils.getCurrentDate()
-                    notifSelectedDate = DateUtils.getNextDate(base)
-                    serviceScope.launch { postOnce(isDarkTheme) }
-                }
-                ACTION_TODAY -> {
-                    notifSelectedDate = null
-                    serviceScope.launch { postOnce(isDarkTheme) }
-                }
-                else -> Log.w(TAG, "onStartCommand: Unknown action: $action")
+        val action = intent?.action ?: "START"
+        Log.d(TAG, "onStartCommand: $action")
+        when (action) {
+            "START", ACTION_START_FROM_BOOT_OR_UPDATE, ACTION_RESTART -> {
+                if (action == ACTION_RESTART) lastScheduleSignature = null
+                notifSelectedDate = null
+                startUpdatingNotification()
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "CRITICAL: Error in onStartCommand", e)
-            if (e is CancellationException) throw e
-            stopForegroundCompat()
-            stopSelf()
-            return START_NOT_STICKY
+            "STOP" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                else stopForeground(true)
+                stopSelf()
+            }
+            ACTION_PREV -> {
+                notifSelectedDate =
+                    DateUtils.getPreviousDate(notifSelectedDate ?: DateUtils.getCurrentDate())
+                serviceScope.launch { postOnce() }
+            }
+            ACTION_NEXT -> {
+                notifSelectedDate =
+                    DateUtils.getNextDate(notifSelectedDate ?: DateUtils.getCurrentDate())
+                serviceScope.launch { postOnce() }
+            }
+            ACTION_TODAY -> {
+                notifSelectedDate = null
+                serviceScope.launch { postOnce() }
+            }
         }
         return START_STICKY
     }
 
-    private fun stopForegroundCompat() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        Log.d(TAG, "Service stopped from foreground.")
-    }
-
-    private fun startUpdatingNotification(isDarkTheme: Boolean) {
+    private fun startUpdatingNotification() {
         updateJob?.cancel()
         updateJob = serviceScope.launch {
-            Log.d(TAG, "startUpdatingNotification: Loop started.")
-            try {
-                if (isActive) {
-                    val initialBaseDate = notifSelectedDate ?: DateUtils.getCurrentDate()
-                    val initialTimes = PrayerUtils.loadPrayerTimes(applicationContext, initialBaseDate)
-                    if (initialTimes.isNotEmpty() && isActive) {
-                        val n = withContext(Dispatchers.Default) { createNotification(initialBaseDate, initialTimes, isDarkTheme) }
-                        if (isActive) startForeground(NOTIFICATION_ID, n)
-                        // زمان‌بندی اذان برای امروز (فقط یک‌بار در روز)
-                        maybeScheduleAdhanFor(initialBaseDate, initialTimes) // اضافه شد
-                        Log.d(TAG, "Initial notification posted from startUpdatingNotification.")
-                    }
-                }
-            } catch (e: CancellationException) {
-                Log.i(TAG, "startUpdatingNotification: Initial post cancelled.", e)
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in initial post from startUpdatingNotification", e)
-            }
-
             while (isActive) {
                 try {
-                    delay(UPDATE_INTERVAL)
-                    if (!isActive) break
-                    val baseDate = notifSelectedDate ?: DateUtils.getCurrentDate()
-                    val times = PrayerUtils.loadPrayerTimes(applicationContext, baseDate)
-                    if (times.isNotEmpty() && isActive) {
-                        val n = withContext(Dispatchers.Default) { createNotification(baseDate, times, isDarkTheme) }
-                        if (isActive) startForeground(NOTIFICATION_ID, n)
-                        // اگر روز عوض شده، برای امروز دوباره آلارم‌های اذان تنظیم می‌شوند
-                        maybeScheduleAdhanFor(baseDate, times) // اضافه شد
-                        Log.d(TAG, "Notification updated from loop.")
+                    val date = notifSelectedDate ?: DateUtils.getCurrentDate()
+                    val times = PrayerUtils.loadDetailedPrayerTimes(applicationContext, date)
+                    if (times.isNotEmpty()) {
+                        val notif = createPrayerNotification(date, times)
+                        startForeground(NOTIF_ID, notif)
+                        scheduleAllAlarms(date, times)
+                        updateAllWidgetsNow()
                     }
-                } catch (e: CancellationException) {
-                    Log.i(TAG, "startUpdatingNotification: Loop cancelled during delay or update.", e)
-                    throw e
                 } catch (e: Exception) {
-                    Log.e(TAG, "Update loop error", e)
-                    delay(5000)
+                    if (e is CancellationException) throw e
+                    Log.e(TAG, "loop error", e)
+                }
+                delay(UPDATE_INTERVAL)
+            }
+        }
+    }
+
+    private suspend fun postOnce() {
+        val date = notifSelectedDate ?: DateUtils.getCurrentDate()
+        val times = PrayerUtils.loadDetailedPrayerTimes(applicationContext, date)
+        if (times.isNotEmpty()) {
+            val notif = createPrayerNotification(date, times)
+            startForeground(NOTIF_ID, notif)
+        }
+    }
+
+    private fun updateAllWidgetsNow() {
+        val mgr = AppWidgetManager.getInstance(this)
+        val providers = listOf(ModernWidgetProvider::class.java, LargeModernWidgetProvider::class.java)
+        providers.forEach { providerClass ->
+            val component = ComponentName(this, providerClass)
+            val ids = mgr.getAppWidgetIds(component)
+            if (ids.isNotEmpty()) {
+                val intent = Intent(this, providerClass).apply {
+                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                }
+                sendBroadcast(intent)
+            }
+        }
+    }
+
+    private suspend fun scheduleAllAlarms(date: MultiDate, prayerTimes: Map<String, String>) {
+        val today = DateUtils.getCurrentDate()
+        if (date.shamsi != today.shamsi) return
+        val settings = applicationContext.dataStore.data.first()
+        val sig = today.shamsi + "|" + settings.asMap().toString()
+        if (sig == lastScheduleSignature) return
+        if (settings[booleanPreferencesKey("adhan_enabled")] ?: true)
+            scheduleAdhanAlarms(prayerTimes)
+        else AdhanScheduler.cancelAll(this)
+        scheduleSilentAndIqama(settings, prayerTimes)
+        lastScheduleSignature = sig
+    }
+
+    private fun scheduleAdhanAlarms(times: Map<String, String>) {
+        val fmt = DateTimeFormatter.ofPattern("HH:mm")
+        val adj = mapOf("صبح" to 30L, "ظهر" to 20L, "عصر" to 20L, "عشاء" to 20L)
+
+        val adhanScheduleMap = times.toMutableMap()
+        adj.forEach { (prayerName, minutesToSubtract) ->
+            times[prayerName]?.let { timeStr ->
+                PrayerUtils.parseTimeSafely(timeStr)?.let {
+                    adhanScheduleMap[prayerName] = it.minusMinutes(minutesToSubtract).format(fmt)
                 }
             }
-            Log.d(TAG, "startUpdatingNotification: Loop finished (isActive is false).")
         }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            AdhanScheduler.scheduleFromPrayerMap(this, adhanScheduleMap)
     }
 
-    // زمان‌بندی اذان برای امروز، فقط یک‌بار در روز
-    private fun maybeScheduleAdhanFor(date: MultiDate, prayerTimes: Map<String, String>) {
-        val today = DateUtils.getCurrentDate()
-        val isToday = try {
-            date.gregorianParts() == today.gregorianParts()
-        } catch (_: Exception) {
-            date.shamsi == today.shamsi
-        }
-        if (!isToday) {
-            Log.d(TAG, "Adhan schedule skipped (date is not today)")
-            return
-        }
+    @SuppressLint("ScheduleExactAlarm")
+    private fun scheduleSilentAndIqama(settings: Preferences, times: Map<String, String>) {
+        val am = getSystemService<AlarmManager>()!!
+        val now = LocalDateTime.now()
+        val isAutoSilentEnabled = settings[booleanPreferencesKey("auto_silent_enabled")] ?: false
+        val isIqamaGloballyEnabled = settings[booleanPreferencesKey("iqama_enabled")] ?: false
+        val minutesBeforeIqama = (settings[intPreferencesKey("minutes_before_iqama")] ?: 10).toLong()
 
-        // یک امضاء پایدار از زمان‌های امروز بسازیم تا اگر عوض شد، دوباره زمان‌بندی کنیم
-        fun normalizeDigits(s: String): String {
-            val map = mapOf(
-                '۰' to '0','١' to '1','۱' to '1','٢' to '2','۲' to '2','٣' to '3','۳' to '3',
-                '٤' to '4','۴' to '4','٥' to '5','۵' to '5','٦' to '6','۶' to '6','٧' to '7',
-                '۷' to '7','٨' to '8','۸' to '8','٩' to '9','۹' to '9','٫' to ':','،' to ':'
-            )
-            val sb = StringBuilder()
-            s.forEach { ch -> sb.append(map[ch] ?: ch) }
-            return sb.toString().trim()
-        }
+        PrayerTime.entries.forEach { p ->
+            val base = p.id.hashCode()
+            // Always cancel previous alarms for this prayer to avoid conflicts
+            am.cancel(pending(base, SilentModeReceiver::class.java, SilentModeReceiver.ACTION_SILENT))
+            am.cancel(pending(base + 1, SilentModeReceiver::class.java, SilentModeReceiver.ACTION_UNSILENT))
+            am.cancel(pending(base + 2, IqamaAlarmReceiver::class.java))
 
-        // فقط کلیدهای مهم رو در نظر بگیریم و اعداد رو لاتین کنیم
-        val keys = listOf("فجر","اذان صبح","صبح","طلوع بامداد","ظهر","dhuhr","zuhr","عصر","asr","غروب","مغرب","maghrib","عشاء","عشا","isha")
-        val sig = buildString {
-            append(today.shamsi)
-            append('|')
-            keys.forEach { k ->
-                val v = prayerTimes.entries.firstOrNull { it.key.contains(k, ignoreCase = true) }?.value
-                append(k).append('=').append(if (v != null) normalizeDigits(v) else "--").append(';')
+            val time = PrayerUtils.parseTimeSafely(times[p.displayName] ?: "") ?: return@forEach
+            val prayerDateTime = time.atDate(now.toLocalDate())
+
+            // --- Schedule Silent Mode (Per-Prayer) ---
+            if (isAutoSilentEnabled) {
+                val silentEnabledKey = booleanPreferencesKey("silent_enabled_${p.id}")
+                if (settings[silentEnabledKey] ?: false) {
+                    val beforeKey = intPreferencesKey("minutes_before_silent_${p.id}")
+                    val afterKey = intPreferencesKey("minutes_after_silent_${p.id}")
+                    val beforeMinutes = (settings[beforeKey] ?: 10).toLong()
+                    val afterMinutes = (settings[afterKey] ?: 10).toLong()
+
+                    val silentTime = prayerDateTime.minusMinutes(beforeMinutes)
+                    if (silentTime.isAfter(now)) {
+                        setExact(am, silentTime, pending(base, SilentModeReceiver::class.java, SilentModeReceiver.ACTION_SILENT))
+                    }
+
+                    val unsilentTime = prayerDateTime.plusMinutes(afterMinutes)
+                    if (unsilentTime.isAfter(now)) {
+                        setExact(am, unsilentTime, pending(base + 1, SilentModeReceiver::class.java, SilentModeReceiver.ACTION_UNSILENT))
+                    }
+                }
+            }
+
+            // --- Schedule Iqama (Global Setting) ---
+            if (isIqamaGloballyEnabled) {
+                val iqamaTime = prayerDateTime.minusMinutes(minutesBeforeIqama)
+                if (iqamaTime.isAfter(now)) {
+                    val pi = pending(base + 2, IqamaAlarmReceiver::class.java) {
+                        putExtra("PRAYER_NAME", p.displayName)
+                    }
+                    setExact(am, iqamaTime, pi)
+                }
             }
         }
-
-        if (sig == lastAdhanScheduledSignature) {
-            Log.d(TAG, "Adhan already scheduled for ${today.shamsi} with same times, skipping.")
-            return
-        }
-
-        runCatching {
-            AdhanScheduler.scheduleFromPrayerMap(this, prayerTimes)
-            lastAdhanScheduledForDateKey = today.shamsi
-            lastAdhanScheduledSignature = sig
-            Log.d(TAG, "Adhan alarms scheduled for ${today.shamsi} (signature changed)")
-        }.onFailure {
-            Log.e(TAG, "Failed to schedule adhan alarms", it)
-        }
     }
 
-    private suspend fun postOnce(isDarkTheme: Boolean) {
-        Log.d(TAG, "postOnce: Attempting to post notification.")
-        try {
-            if (!serviceScope.isActive) return
-            val baseDate = notifSelectedDate ?: DateUtils.getCurrentDate()
-            val times = PrayerUtils.loadPrayerTimes(applicationContext, baseDate)
-            if (times.isNotEmpty() && serviceScope.isActive) {
-                val n = createNotification(baseDate, times, isDarkTheme)
-                if (serviceScope.isActive) startForeground(NOTIFICATION_ID, n)
-                // در پست یک‌باره، زمان‌بندی را به عهده حلقه می‌گذاریم
-                Log.d(TAG, "Notification posted successfully from postOnce.")
-            }
-        } catch (e: CancellationException) {
-            Log.i(TAG, "postOnce: Coroutine was cancelled.", e)
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "postOnce error while creating/posting notification", e)
-        }
-    }
-
-    @SuppressLint("UseKtx")
-    private fun createNotification(
-        date: MultiDate,
-        prayerTimes: Map<String, String>,
-        isDarkTheme: Boolean
-    ): Notification {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val usePersianNumbers = prefs.getBoolean("use_persian_numbers", true)
-
-        val weekDay = DateUtils.getWeekDayName(date)
-        val title = "$weekDay ${DateUtils.formatShamsiLong(date, usePersianNumbers)}"
-        val otherDates = "${DateUtils.formatHijriLong(date, usePersianNumbers)} | ${DateUtils.formatGregorianLong(date, usePersianNumbers)}"
-
-        val now = java.time.LocalTime.now()
-        val highlightPrayer = PrayerUtils.getCurrentPrayerForHighlight(prayerTimes, now)
-        val prayerText = createPrayerTimesText(prayerTimes, highlightPrayer, isDarkTheme)
-
-        val collapsed = createCollapsedView(
-            layoutId = R.layout.notification_collapsed,
-            title = title,
-            otherDates = otherDates,
-            date = date,
-            now = now,
-            prayerTimes = prayerTimes,
-            isDarkTheme = isDarkTheme
-        )
-        val expanded = createExpandedView(
-            layoutId = R.layout.notification_expanded,
-            title = title,
-            otherDates = otherDates,
-            prayerText = prayerText,
-            prayerTimes = prayerTimes,
-            currentPrayer = highlightPrayer,
-            showTodayButton = shouldShowTodayButton(notifSelectedDate),
-            isDarkTheme = isDarkTheme
-        )
-
-        val builder = NotificationCompat.Builder(this, NotificationService.DAILY_CHANNEL_ID)
-
-        val dayOfMonth = date.getShamsiParts().third
-        val iconTextColor = if (isDarkTheme) Color.WHITE else Color.BLACK
-        val dynamicIcon = getCachedDayIcon(dayOfMonth, iconTextColor)
-        builder.setSmallIcon(dynamicIcon)
-
-        return builder
-            .setCustomContentView(collapsed)
-            .setCustomBigContentView(expanded)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .apply {
-                setShowWhen(false)
-                setUsesChronometer(false)
-            }
-            .build()
-    }
-
-    private fun getCachedDayIcon(day: Int, iconTextColor: Int): IconCompat {
-        val usePersianNumbers = getSharedPreferences("settings", MODE_PRIVATE)
-            .getBoolean("use_persian_numbers", true)
-        return getCachedDayIcon(day, iconTextColor, usePersianNumbers)
-    }
-
-    private fun getCachedDayIcon(
-        day: Int,
-        iconTextColor: Int,
-        usePersianNumbers: Boolean
-    ): IconCompat {
-        val safeDay = day.coerceIn(1, 31)
-        if (safeDay == cachedIconDay &&
-            iconTextColor == cachedIconColor &&
-            cachedUsePersianNumbers == usePersianNumbers &&
-            cachedIcon != null
-        ) {
-            return cachedIcon!!
-        }
-
-        val icon = createDaySmallIconCompat(safeDay, iconTextColor, usePersianNumbers)
-        cachedIconDay = safeDay
-        cachedIconColor = iconTextColor
-        cachedUsePersianNumbers = usePersianNumbers
-        cachedIcon = icon
-        return icon
-    }
-
-    private fun createDaySmallIconCompat(
-        day: Int,
-        iconTextColor: Int,
-        usePersianNumbers: Boolean
-    ): IconCompat {
-        val dm = resources.displayMetrics
-        val sizePx = (24f * dm.density).roundToInt().coerceAtLeast(24)
-
-        val bmp = createBitmap(sizePx, sizePx)
-        val canvas = Canvas(bmp)
-        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = iconTextColor
-            textAlign = Paint.Align.CENTER
-            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            style = Paint.Style.FILL
-        }
-
-        val textToDraw = DateUtils.convertToPersianNumbers(day.toString(), usePersianNumbers)
-        paint.textSize = if (day < 10) sizePx * 0.75f else sizePx * 0.65f
-
-        val textBounds = android.graphics.Rect()
-        paint.getTextBounds(textToDraw, 0, textToDraw.length, textBounds)
-
-        val x = canvas.width / 2f
-        val y = canvas.height / 2f - textBounds.centerY()
-
-        canvas.drawText(textToDraw, x, y, paint)
-        return IconCompat.createWithBitmap(bmp)
-    }
-
-    private fun shouldShowTodayButton(selected: MultiDate?): Boolean {
-        if (selected == null) return false
-        return try {
-            val today = DateUtils.getCurrentDate()
-            selected.gregorianParts() != today.gregorianParts()
-        } catch (_: Exception) {
-            runCatching { selected.gregorian != DateUtils.getCurrentDate().gregorian }.getOrDefault(true)
-        }
-    }
-
-    private fun createCollapsedView(
-        layoutId: Int,
-        title: String,
-        otherDates: String,
-        date: MultiDate,
-        now: java.time.LocalTime,
-        prayerTimes: Map<String, String>,
-        isDarkTheme: Boolean
-    ): RemoteViews {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val usePersianNumbers = prefs.getBoolean("use_persian_numbers", true)
-        val fontId = prefs.getString("fontId", "system")?.lowercase() ?: "system"
-        val tf = resolveTypeface(fontId)
-
-        val colors = getNotificationColors(isDarkTheme)
-        val backgroundResource = if (isDarkTheme) {
-            R.drawable.notification_bg_full_bleed_dark
+    private fun pending(
+        req: Int,
+        cls: Class<*>,
+        act: String? = null,
+        extraBlock: (Intent.() -> Unit)? = null
+    ): PendingIntent {
+        val i = Intent(this, cls)
+        if (act != null) i.action = act
+        extraBlock?.invoke(i)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        return if (Service::class.java.isAssignableFrom(cls)) {
+            PendingIntent.getService(this, req, i, flags)
         } else {
-            R.drawable.notification_bg_full_bleed_light
-        }
-
-        val titleBmp = rvTextBitmap(
-            text = title, tf = tf, sp = 16f, color = colors.prayerHighlight,
-            maxWidthPx = dp(300), extraVerticalSpace = 16
-        )
-        val otherDatesBmp = rvTextBitmap(
-            text = otherDates, tf = tf, sp = 13f, color = colors.secondaryText,
-            maxWidthPx = dp(300), extraVerticalSpace = 12
-        )
-
-        return RemoteViews(packageName, layoutId).apply {
-            setInt(R.id.collapsed_root_layout, "setBackgroundResource", backgroundResource)
-            setImageViewBitmap(R.id.iv_title_collapsed, titleBmp)
-            setViewVisibility(R.id.iv_title_collapsed, View.VISIBLE)
-            setViewVisibility(R.id.tv_shamsi_full, View.GONE)
-
-            setImageViewBitmap(R.id.iv_other_collapsed, otherDatesBmp)
-            setViewVisibility(R.id.iv_other_collapsed, View.VISIBLE)
-            setViewVisibility(R.id.tv_other_dates_collapsed, View.GONE)
-
-            setViewVisibility(R.id.iv_next_collapsed, View.GONE)
-            setViewVisibility(R.id.tv_next_prayer, View.GONE)
+            PendingIntent.getBroadcast(this, req, i, flags)
         }
     }
 
-    private fun createPrayerTimesText(
-        prayerTimes: Map<String, String>,
-        currentPrayer: String?,
-        isDarkTheme: Boolean
-    ): String {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val usePersianNumbers = prefs.getBoolean("use_persian_numbers", true)
-        val use24HourFormat = prefs.getBoolean("use_24_hour_format", false)
-
-        val colors = getNotificationColors(isDarkTheme)
-        val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-
-        val normalColorHex = String.format("#%06X", 0xFFFFFF and colors.prayerTime)
-        val highlightColorHex = String.format("#%06X", 0xFFFFFF and colors.prayerHighlight)
-
-        return order.joinToString(" | ") { name ->
-            val raw = prayerTimes[name] ?: "--:--"
-            val time = DateUtils.formatDisplayTime(raw, use24HourFormat, usePersianNumbers)
-            if (name == currentPrayer) "<b><font color='$highlightColorHex'>$name: $time</font></b>"
-            else "<font color='$normalColorHex'>$name: $time</font>"
-        }
+    @SuppressLint("ScheduleExactAlarm")
+    private fun setExact(am: AlarmManager, at: LocalDateTime, pi: PendingIntent) {
+        val t = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi)
+        else am.setExact(AlarmManager.RTC_WAKEUP, t, pi)
     }
 
-    private fun createExpandedView(
-        layoutId: Int,
-        title: String,
-        otherDates: String,
-        prayerText: String,
-        prayerTimes: Map<String, String>,
-        currentPrayer: String?,
-        showTodayButton: Boolean,
-        isDarkTheme: Boolean
-    ): RemoteViews {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val fontId = prefs.getString("fontId", "system")?.lowercase() ?: "system"
-        val tf = resolveTypeface(fontId)
-        val usePersianNumbers = prefs.getBoolean("use_persian_numbers", true)
-        val use24HourFormat = prefs.getBoolean("use_24_hour_format", false)
+    // -- اندازه dp و sp --
+    private fun dp(v: Int): Int = TypedValue.applyDimension(
+        TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics
+    ).toInt()
 
-        val colors = getNotificationColors(isDarkTheme)
-        val backgroundResource = if (isDarkTheme) {
-            R.drawable.notification_bg_full_bleed_dark
-        } else {
-            R.drawable.notification_bg_full_bleed_light
-        }
-
-        val titleBmp = rvTextBitmap(
-            text = title, tf = tf, sp = 18f, color = colors.primaryText,
-            maxWidthPx = dp(320), extraVerticalSpace = 16
-        )
-        val otherBmp = rvTextBitmap(
-            text = otherDates, tf = tf, sp = 14f, color = colors.secondaryText,
-            maxWidthPx = dp(320), extraVerticalSpace = 12
-        )
-
-        val prayersBmp = createPrayersBitmapWithHighlight(
-            prayerTimes = prayerTimes,
-            currentPrayerName = currentPrayer,
-            tf = tf,
-            maxWidthPx = dp(320),
-            baseColor = colors.prayerTime,
-            highlightColor = colors.prayerHighlight,
-            use24HourFormat = use24HourFormat,
-            usePersianNumbers = usePersianNumbers
-        )
-
-        val bmpPrev = pillButtonBitmap("روز قبل", colors.navButton, colors.navText, 12f)
-        val bmpNext = pillButtonBitmap("روز بعد", colors.navButton, colors.navText, 12f)
-        val bmpToday = pillButtonBitmap("بازگشت به امروز", colors.todayButton, colors.navText, 12f)
-
-        return RemoteViews(packageName, layoutId).apply {
-            setInt(R.id.expanded_root_layout, "setBackgroundResource", backgroundResource)
-            setImageViewBitmap(R.id.iv_title, titleBmp)
-            setViewVisibility(R.id.iv_title, View.VISIBLE)
-            setViewVisibility(R.id.tv_shamsi_date, View.GONE)
-
-            setImageViewBitmap(R.id.iv_other, otherBmp)
-            setViewVisibility(R.id.iv_other, View.VISIBLE)
-            setViewVisibility(R.id.tv_other_dates, View.GONE)
-
-            setImageViewBitmap(R.id.iv_prayer_times, prayersBmp)
-            setViewVisibility(R.id.iv_prayer_times, View.VISIBLE)
-            setViewVisibility(R.id.tv_prayer_times, View.GONE)
-
-            setImageViewBitmap(R.id.iv_prev_day_exp, bmpPrev)
-            setImageViewBitmap(R.id.iv_next_day_exp, bmpNext)
-            setImageViewBitmap(R.id.btn_today, bmpToday)
-
-            setViewVisibility(R.id.iv_prev_day_exp, View.VISIBLE)
-            setViewVisibility(R.id.iv_next_day_exp, View.VISIBLE)
-            setViewVisibility(R.id.btn_today, if (showTodayButton) View.VISIBLE else View.INVISIBLE)
-
-            setOnClickPendingIntent(R.id.iv_prev_day_exp, pendingService(ACTION_PREV))
-            setOnClickPendingIntent(R.id.iv_next_day_exp, pendingService(ACTION_NEXT))
-            setOnClickPendingIntent(R.id.btn_today, pendingService(ACTION_TODAY))
-        }
-    }
-
-    private fun resolveTypeface(fontId: String): Typeface {
-        val res = when (fontId.lowercase(Locale.ROOT)) {
-            "byekan"      -> R.font.byekan
-            "estedad"     -> R.font.estedad_regular
-            "vazirmatn"   -> R.font.vazirmatn_regular
-            "iraniansans" -> R.font.iraniansans
-            "sahel"       -> R.font.sahel_bold
-            else -> 0
-        }
-        return if (res != 0) ResourcesCompat.getFont(this, res) ?: Typeface.DEFAULT else Typeface.DEFAULT
-    }
-
-    private fun dp(value: Int): Int =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
-
-    private fun spPx(v: Float): Float =
+    private fun sp(v: Float): Float =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, v, resources.displayMetrics)
 
-    private fun rvTextBitmap(
-        text: String,
-        tf: Typeface,
-        sp: Float,
-        color: Int,
-        maxWidthPx: Int,
-        minSp: Float = 11f,
-        extraVerticalSpace: Int = 16
-    ): Bitmap {
+    private fun maxWidth(): Int {
+        val w = resources.displayMetrics.widthPixels
+        return (w - dp(32)).coerceAtLeast(dp(300))
+    }
+
+    private fun font(f: String): Typeface {
+        val id = when (f.lowercase(Locale.ROOT)) {
+            "byekan" -> R.font.byekan
+            "estedad" -> R.font.estedad_regular
+            "vazirmatn" -> R.font.vazirmatn_regular
+            "iraniansans" -> R.font.iraniansans
+            "sahel" -> R.font.sahel_bold
+            else -> 0
+        }
+        return if (id != 0) ResourcesCompat.getFont(this, id) ?: Typeface.DEFAULT else Typeface.DEFAULT
+    }
+
+    private fun findOptimalSP(tf: Typeface, w: Int, txt: String, pref: Float = 22f, min: Float = 14f): Float {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        p.typeface = tf
+        var s = pref
+        while (s >= min) {
+            p.textSize = sp(s)
+            if (p.measureText(txt) <= w) return s
+            s -= 0.5f
+        }
+        return min
+    }
+
+    private fun textBitmap(text: String, tf: Typeface, spVal: Float, color: Int, w: Int): Bitmap {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = color
             textAlign = Paint.Align.CENTER
             typeface = tf
+            textSize = sp(spVal)
         }
-
-        var currentSp = sp
-        var textWidth: Float
-        do {
-            paint.textSize = spPx(currentSp)
-            textWidth = paint.measureText(text)
-            if (textWidth <= maxWidthPx || currentSp <= minSp) break
-            currentSp -= 0.5f
-        } while (currentSp > minSp)
-
         val fm = paint.fontMetrics
-        val textHeight = fm.descent - fm.ascent
-        val extraPx = dp(extraVerticalSpace)
-        val totalHeight = (textHeight + extraPx).toInt().coerceAtLeast(dp(32))
-
-        val bmp = createBitmap(maxWidthPx.coerceAtLeast(1), totalHeight)
-        val canvas = Canvas(bmp)
-        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-
-        val cx = maxWidthPx / 2f
-        val baseline = totalHeight / 2f + (textHeight / 2f) - fm.descent
-        canvas.drawText(text, cx, baseline, paint)
-        return bmp
-    }
-
-    private fun createPrayersBitmapWithHighlight(
-        prayerTimes: Map<String, String>,
-        currentPrayerName: String?,
-        tf: Typeface,
-        maxWidthPx: Int,
-        baseColor: Int,
-        highlightColor: Int,
-        use24HourFormat: Boolean,
-        usePersianNumbers: Boolean
-    ): Bitmap {
-        val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-        val items = order.map { name ->
-            val raw = prayerTimes[name] ?: "--:--"
-            val time = DateUtils.formatDisplayTime(raw, use24HourFormat, usePersianNumbers)
-            name to time
-        }
-
-        val cols = 3
-        val hPad = dp(8).toFloat()
-        val vPad = dp(6).toFloat()
-        val colSpacing = dp(8).toFloat()
-        val rowSpacing = dp(6).toFloat()
-        val contentWidth = maxWidthPx - (2f * hPad)
-        val cellWidth = (contentWidth - (cols - 1) * colSpacing) / cols
-
-        fun fitSizePx(text: String, baseSpSize: Float, minSpSize: Float = 10f): Float {
-            var currentSpSize = baseSpSize
-            val tempPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER; typeface = tf }
-            while (currentSpSize >= minSpSize) {
-                tempPaint.textSize = spPx(currentSpSize)
-                if (tempPaint.measureText(text) <= cellWidth) return tempPaint.textSize
-                currentSpSize -= 0.5f
-            }
-            return spPx(minSpSize)
-        }
-
-        data class LayoutItem(val name: String, val text: String, val textSizePx: Float, val itemHeight: Float)
-
-        fun layoutRow(rowItems: List<Pair<String, String>>): Pair<List<LayoutItem>, Float> {
-            val layouts = ArrayList<LayoutItem>(cols)
-            var maxH = 0f
-            for ((name, timeText) in rowItems) {
-                val full = "$name: $timeText"
-                val sz = fitSizePx(full, 14f)
-                val tmp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = sz; typeface = tf }
-                val fm = tmp.fontMetrics
-                val h = fm.bottom - fm.top
-                if (h > maxH) maxH = h
-                layouts.add(LayoutItem(name, full, sz, h))
-            }
-            return layouts to maxH
-        }
-
-        val row1 = items.subList(0, 3)
-        val row2 = items.subList(3, 6)
-
-        val (r1Layout, r1H) = layoutRow(row1)
-        val (r2Layout, r2H) = layoutRow(row2)
-        val totalHeight = (vPad + r1H + rowSpacing + r2H + vPad).toInt().coerceAtLeast(dp(48))
-
-        val bmp = createBitmap(maxWidthPx.coerceAtLeast(1), totalHeight)
-        val canvas = Canvas(bmp)
-        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-
-        val normalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = baseColor
-            textAlign = Paint.Align.CENTER
-            typeface = tf
-        }
-        val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = highlightColor
-            textAlign = Paint.Align.CENTER
-            typeface = Typeface.create(tf, Typeface.BOLD)
-        }
-
-        val contentRight = maxWidthPx - hPad
-        val y1 = vPad + r1H / 2f
-        val y2 = vPad + r1H + rowSpacing + r2H / 2f
-
-        fun drawRow(layouts: List<LayoutItem>, cy: Float) {
-            layouts.forEachIndexed { i, it ->
-                val cx = contentRight - (cellWidth / 2f) - i * (cellWidth + colSpacing)
-                val p = if (it.name == currentPrayerName) highlightPaint else normalPaint
-                p.textSize = it.textSizePx
-                val fm = p.fontMetrics
-                val base = cy - (fm.ascent + fm.descent) / 2f
-                canvas.drawText(it.text, cx, base, p)
-            }
-        }
-
-        drawRow(r1Layout, y1)
-        drawRow(r2Layout, y2)
-        return bmp
-    }
-
-    private fun pillButtonBitmap(
-        text: String,
-        bgColor: Int,
-        textColor: Int,
-        sp: Float = 12f,
-        minHeightDp: Int = 36,
-        hPadDp: Int = 16
-    ): Bitmap {
-        val h = dp(minHeightDp)
-        val padH = dp(hPadDp).toFloat()
-        val minW = dp(64)
-
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = textColor
-            textAlign = Paint.Align.CENTER
-            textSize = spPx(sp)
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        }
-        val textW = paint.measureText(text)
-        val w = (textW + 2 * padH).toInt().coerceAtLeast(minW)
-        val bmp = createBitmap(w.coerceAtLeast(1), h.coerceAtLeast(1))
+        val h = (fm.descent - fm.ascent + dp(8)).toInt()
+        val bmp = createBitmap(w.coerceAtLeast(1), h)
         val c = Canvas(bmp)
-        c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-
-        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bgColor }
-        val r = h / 2f
-        c.drawRoundRect(0f, 0f, w.toFloat(), h.toFloat(), r, r, bg)
-
-        val fm = paint.fontMetrics
         val baseline = h / 2f - (fm.ascent + fm.descent) / 2f
         c.drawText(text, w / 2f, baseline, paint)
         return bmp
     }
 
-    override fun onBind(intent: Intent): IBinder? = null
+    private fun pillButtonBitmap(text: String, tf: Typeface, bgColor: Int, hPadDp: Int): Bitmap {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.color = if (bgColor == Color.TRANSPARENT) Color.TRANSPARENT else Color.WHITE
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = sp(12f)
+        paint.typeface = tf
+        val textW = paint.measureText(text)
+        val h = dp(36)
+        val padH = dp(hPadDp).toFloat()
+        val w = (textW + 2 * padH).toInt().coerceAtLeast(dp(64))
+        val bmp = createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val bg = Paint(Paint.ANTI_ALIAS_FLAG)
+        bg.color = bgColor
+        c.drawRoundRect(0f, 0f, w.toFloat(), h.toFloat(), h / 2f, h / 2f, bg)
+        val fm = paint.fontMetrics
+        val base = h / 2f - (fm.ascent + fm.descent) / 2f
+        c.drawText(text, w / 2f, base, paint)
+        return bmp
+    }
+
+    private fun createPrayerTimesBitmap(
+        times: Map<String, String>,
+        current: String?,
+        baseColor: Int,
+        highlightColor: Int,
+        tf: Typeface,
+        usePersian: Boolean,
+        use24h: Boolean
+    ): Bitmap {
+        val order = listOf("عشاء", "مغرب", "عصر", "ظهر", "صبح")
+        val w = dp(320)
+        val h = dp(60)
+        val bmp = createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        p.typeface = tf
+        p.textAlign = Paint.Align.CENTER
+        p.textSize = sp(14f)
+        val colW = w / order.size
+        val offset = (p.descent() - p.ascent()) / 2 - p.descent()
+        order.forEachIndexed { i, name ->
+            val t = DateUtils.formatDisplayTime(times[name] ?: "--:--", use24h, usePersian)
+            p.color = if (name == current) highlightColor else baseColor
+            p.isFakeBoldText = name == current
+            val x = (i * colW) + (colW / 2f)
+            val y1 = h / 2f - (h / 4f) + offset
+            val y2 = h / 2f + (h / 4f) + offset
+            c.drawText(name, x, y1, p)
+            c.drawText(t, x, y2, p)
+        }
+        return bmp
+    }
+    @SuppressLint("RestrictedApi")
+    @Suppress("UNUSED_VARIABLE", "UNUSED_PARAMETER")
+    private suspend fun createPrayerNotification(date: MultiDate, times: Map<String, String>): Notification {
+        val settings = applicationContext.dataStore.data.first()
+        val usePersian = settings[booleanPreferencesKey("use_persian_numbers")] ?: true
+        val use24h = settings[booleanPreferencesKey("use_24_hour_format")] ?: true
+        val fontId = settings[stringPreferencesKey("fontId")] ?: "estedad"
+        val dark = settings[booleanPreferencesKey("is_dark_theme")] ?: false
+
+        DateUtils.setDefaultUsePersianNumbers(usePersian)
+        val tf = font(fontId)
+
+        val (prim, sec, bgRes) = if (dark)
+            Triple(Color.WHITE, Color.LTGRAY, R.drawable.widget_background_dark)
+        else Triple(Color.BLACK, Color.DKGRAY, R.drawable.widget_background_light)
+
+        val highlightPrayer = PrayerUtils.getCurrentPrayerForHighlight(times, java.time.LocalTime.now())
+        val shamsi = "${DateUtils.getWeekDayName(date)} ${DateUtils.formatShamsiLong(date, usePersian)}"
+        val other = "${DateUtils.formatHijriLong(date, usePersian)} | ${DateUtils.formatGregorianLong(date, usePersian)}"
+        val w = maxWidth()
+
+
+        // --- Collapsed View ---
+        val collapsed = RemoteViews(packageName, R.layout.notification_collapsed).apply {
+            setInt(R.id.collapsed_root_layout, "setBackgroundResource", bgRes)
+
+            // Hide text fallbacks
+            setViewVisibility(R.id.tv_shamsi_full, View.GONE)
+            setViewVisibility(R.id.tv_other_dates_collapsed, View.GONE)
+
+            // Calculate font sizes specifically for collapsed view
+            val collapsedShamsiSP = findOptimalSP(tf, w, shamsi, pref = 20f, min = 16f)
+            // Using a fixed larger font size for the second line in the collapsed view for better readability.
+            val collapsedOtherSP = 16f
+
+            // Show and populate ImageViews
+            setViewVisibility(R.id.iv_title_collapsed, View.VISIBLE)
+            setViewVisibility(R.id.iv_other_collapsed, View.VISIBLE)
+            setImageViewBitmap(R.id.iv_title_collapsed, textBitmap(shamsi, tf, collapsedShamsiSP, prim, w))
+            setImageViewBitmap(R.id.iv_other_collapsed, textBitmap(other, tf, collapsedOtherSP, sec, w))
+        }
+
+        // --- Expanded View ---
+        val exp = RemoteViews(packageName, R.layout.notification_expanded).apply {
+            setInt(R.id.expanded_root_layout, "setBackgroundResource", bgRes)
+
+            // Calculate font sizes for expanded view separately (original values)
+            val expandedShamsiSP = findOptimalSP(tf, w, shamsi, pref = 20f, min = 16f)
+            val expandedOtherSP = findOptimalSP(tf, w, other, pref = 16f, min = 12f)
+
+
+            // --- Titles ---
+            // Hide text fallbacks
+            setViewVisibility(R.id.tv_shamsi_date, View.GONE)
+            setViewVisibility(R.id.tv_other_dates, View.GONE)
+
+            // Show and populate ImageViews
+            setViewVisibility(R.id.iv_title, View.VISIBLE)
+            setViewVisibility(R.id.iv_other, View.VISIBLE)
+            setImageViewBitmap(R.id.iv_title, textBitmap(shamsi, tf, expandedShamsiSP, prim, w))
+            setImageViewBitmap(R.id.iv_other, textBitmap(other, tf, expandedOtherSP, sec, w))
+
+            // --- Prayer Times ---
+            val prayBmp = createPrayerTimesBitmap(
+                times, highlightPrayer,
+                if (dark) "#80DEEA".toColorInt() else "#0D47A1".toColorInt(),
+                if (dark) "#FFF59D".toColorInt() else "#2E7D32".toColorInt(),
+                tf, usePersian, use24h
+            )
+            // Hide text fallback
+            setViewVisibility(R.id.tv_prayer_times, View.GONE)
+            // Show and populate ImageView
+            setViewVisibility(R.id.iv_prayer_times, View.VISIBLE)
+            setImageViewBitmap(R.id.iv_prayer_times, prayBmp)
+
+
+            // --- Buttons ---
+            val navCol = if (dark) "#78909C".toColorInt() else "#546E7A".toColorInt()
+            val todayCol = if (dark) "#64B5F6".toColorInt() else "#1976D2".toColorInt()
+
+            // Create bitmaps for buttons
+            setImageViewBitmap(R.id.iv_prev_day_exp, pillButtonBitmap("روز قبل", tf, navCol, 16))
+            setImageViewBitmap(R.id.iv_next_day_exp, pillButtonBitmap("روز بعد", tf, navCol, 16))
+
+            // Attach actions to buttons
+            setOnClickPendingIntent(
+                R.id.iv_prev_day_exp,
+                pending(ACTION_PREV.hashCode(), PrayerForegroundService::class.java, ACTION_PREV)
+            )
+            setOnClickPendingIntent(
+                R.id.iv_next_day_exp,
+                pending(ACTION_NEXT.hashCode(), PrayerForegroundService::class.java, ACTION_NEXT)
+            )
+
+            // Visibility and action for "Today" button
+            val showToday = notifSelectedDate?.let { it.shamsi != DateUtils.getCurrentDate().shamsi } ?: false
+            if (showToday) {
+                val bmpToday = pillButtonBitmap("بازگشت به امروز", tf, todayCol, 20)
+                setImageViewBitmap(R.id.btn_today, bmpToday)
+                setOnClickPendingIntent(
+                    R.id.btn_today,
+                    pending(ACTION_TODAY.hashCode(), PrayerForegroundService::class.java, ACTION_TODAY)
+                )
+            } else {
+                val placeholderBmp = pillButtonBitmap("بازگشت به امروز", tf, Color.TRANSPARENT, 20)
+                setImageViewBitmap(R.id.btn_today, placeholderBmp)
+            }
+            setViewVisibility(R.id.btn_today, if (showToday) View.VISIBLE else View.INVISIBLE)
+        }
+
+        // --- Build Notification ---
+        val builder = NotificationCompat.Builder(this, NotificationService.DAILY_CHANNEL_ID)
+            .setCustomContentView(collapsed)
+            .setCustomBigContentView(exp)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setShowWhen(false)
+
+        // --- Dynamic Small Icon ---
+        val iconDay = date.getShamsiParts().third
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val smallIcon = getDaySmallIconCached(iconDay, dark, usePersian)
+            builder.setSmallIcon(smallIcon)
+        } else {
+            builder.setSmallIcon(R.drawable.ic_notification_icon)
+        }
+
+        return builder.build()
+    }
+
+    private var cachedIconDay = -1
+    private var cachedIconColor = Color.BLACK
+    private var cachedUsePersian = false
+    private var cachedIcon: IconCompat? = null
+
+    @Suppress("unused")
+    private fun getDaySmallIconCached(day: Int, dark: Boolean, per: Boolean): IconCompat {
+        val color = if (dark) Color.WHITE else Color.BLACK
+        if (day == cachedIconDay && color == cachedIconColor && cachedUsePersian == per && cachedIcon != null)
+            return cachedIcon!!
+        val res = createDayIcon(day, dark, per)
+        cachedIconDay = day; cachedIconColor = color; cachedUsePersian = per; cachedIcon = res
+        return res
+    }
+
+    private fun createDayIcon(day: Int, dark: Boolean, per: Boolean): IconCompat {
+        val size = dp(24)
+        val bmp = createBitmap(size, size)
+        val c = Canvas(bmp)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
+            color = if (dark) Color.WHITE else Color.BLACK
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+        }
+        val txt = if (per) DateUtils.convertToPersianNumbers(day.toString()) else day.toString()
+        val bnds = Rect()
+        var ts = size.toFloat()
+        while (ts > 1f) {
+            paint.textSize = ts
+            paint.getTextBounds(txt, 0, txt.length, bnds)
+            if (bnds.width() <= size && bnds.height() <= size) break
+            ts -= 0.5f
+        }
+        val x = size / 2f
+        val y = size / 2f - bnds.centerY()
+        c.drawText(txt, x, y, paint)
+        return IconCompat.createWithBitmap(bmp)
+    }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "onDestroy: Service destroying...")
         updateJob?.cancel()
         serviceScope.cancel()
-        Log.d(TAG, "onDestroy: Service destroyed, job and scope cancelled.")
     }
 
-    private fun pendingService(action: String): PendingIntent {
-        val intent = Intent(this, PrayerForegroundService::class.java).apply { this.action = action }
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        return PendingIntent.getService(this, action.hashCode(), intent, flags)
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 }

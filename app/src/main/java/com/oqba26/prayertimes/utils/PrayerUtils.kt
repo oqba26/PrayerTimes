@@ -105,25 +105,74 @@ object PrayerUtils {
             emptyMap()
         }
     }
+    
+    /**
+     * بارگذاری اوقات دقیق نماز روز از فایل JSON جدید (24 ساعته)
+     */
+    suspend fun loadDetailedPrayerTimes(
+        context: Context,
+        date: MultiDate
+    ): Map<String, String> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            context.assets.open("prayer_times_24h.json").use { stream ->
+                InputStreamReader(stream).use { reader ->
+                    val type = object : TypeToken<Map<String, Map<String, String>>>() {}.type
+                    val data: Map<String, Map<String, String>> = Gson().fromJson(reader, type)
+
+                    val parts = date.shamsi.split("/")
+                    if (parts.size < 3) return@withContext emptyMap()
+
+                    val monthNumber = parts[1].toIntOrNull() ?: return@withContext emptyMap<String, String>()
+                    val monthName = DateUtils.getPersianMonthName(monthNumber)
+                    val day = parts[2].padStart(2, '0')
+                    val key = "$monthName/$day"
+
+                    val result = data[key] ?: emptyMap()
+
+                    // نرمال‌سازی کامل (ارقام + HH:mm)
+                    result.mapValues { sanitizeTime(it.value) }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("PrayerUtils", "⛔ خطا در loadDetailedPrayerTimes", e)
+            emptyMap()
+        }
+    }
+
 
     /**
-     * هایلایت "نماز بعدی" با چسبندگی 30 دقیقه‌ای برای هر 6 وقت
+     * هایلایت "نماز بعدی"
      */
     fun getCurrentPrayerForHighlight(times: Map<String, String>, now: LocalTime): String? {
-        val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-        val stickMinutes = 30L
+        val prayerOrder = listOf(
+            "صبح",
+            "ظهر",
+            "عصر",
+            "مغرب",
+            "عشاء"
+        )
 
-        val parsed = order.mapNotNull { name ->
-            val s = times[name] ?: return@mapNotNull null
-            parseTimeFor(name, s)?.let { t -> name to t }
+        val parsedTimes = prayerOrder.mapNotNull { name ->
+            times[name]?.let { timeStr ->
+                parseTimeSafely(timeStr)?.let { time ->
+                    name to time
+                }
+            }
         }.sortedBy { it.second }
 
-        if (parsed.isEmpty()) return null
-
-        for ((name, t) in parsed) {
-            if (!now.isAfter(t.plusMinutes(stickMinutes))) return name
+        if (parsedTimes.isEmpty()) {
+            return null
         }
-        return parsed.first().first
+
+        // Find the first prayer time that is after the current time.
+        val nextPrayer = parsedTimes.firstOrNull { it.second.isAfter(now) }
+
+        if (nextPrayer != null) {
+            return nextPrayer.first
+        }
+
+        // If no prayer is after `now`, it means we are past Isha. The next prayer is Fajr (the first prayer of the day).
+        return parsedTimes.firstOrNull()?.first
     }
 
     /**

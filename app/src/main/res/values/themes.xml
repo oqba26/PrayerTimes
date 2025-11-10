@@ -10,6 +10,9 @@
         <item name="colorSecondary">@color/md_theme_light_secondary</item>
         <item name="colorOnSecondary">@color/md_theme_light_onSecondary</item>
         <!-- هیچ padding سراسری روی تم نگذارید -->
+
+        <item name="android:fontFamily">@font/estedad_regular</item>
+        <item name="fontFamily">@font/estedad_regular</item>
     </style>
 
     <!-- تم بدون اکشن‌بار -->

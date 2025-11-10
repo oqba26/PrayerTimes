@@ -106,7 +106,7 @@ object DateUtils {
 
     fun convertToHijri(gy: Int, gm: Int, gd: Int): String {
         val jd = gregorianToJulianDay(gy, gm, gd)
-        val epoch = 1948439
+        val epoch = 1948440
         var daysSinceEpoch = jd - epoch
         var hy = 1
         while (true) {
