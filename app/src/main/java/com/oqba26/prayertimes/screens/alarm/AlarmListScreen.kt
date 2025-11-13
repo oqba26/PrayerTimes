@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import com.oqba26.prayertimes.R
 import com.oqba26.prayertimes.models.Alarm
+import com.oqba26.prayertimes.utils.DateUtils
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,7 +46,8 @@ fun AlarmListScreen(
     alarms: List<Alarm>,
     onAddAlarm: () -> Unit,
     onAlarmClick: (Alarm) -> Unit,
-    onToggleAlarm: (Alarm, Boolean) -> Unit
+    onToggleAlarm: (Alarm, Boolean) -> Unit,
+    usePersianNumbers: Boolean
 ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -86,7 +88,8 @@ fun AlarmListScreen(
                     AlarmItem(
                         alarm = it,
                         onClick = { onAlarmClick(it) },
-                        onToggle = { enabled -> onToggleAlarm(it, enabled) }
+                        onToggle = { enabled -> onToggleAlarm(it, enabled) },
+                        usePersianNumbers = usePersianNumbers
                     )
                 }
             }
@@ -131,7 +134,8 @@ private fun AlarmListTopBar() {
 private fun AlarmItem(
     alarm: Alarm,
     onClick: () -> Unit,
-    onToggle: (Boolean) -> Unit
+    onToggle: (Boolean) -> Unit,
+    usePersianNumbers: Boolean
 ) {
     Card(
         modifier = Modifier
@@ -147,9 +151,9 @@ private fun AlarmItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers(
+                    text = DateUtils.convertToPersianNumbers(
                         String.format(java.util.Locale.US, "%02d:%02d", alarm.hour, alarm.minute),
-                        enabled = true
+                        enabled = usePersianNumbers
                     ),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold

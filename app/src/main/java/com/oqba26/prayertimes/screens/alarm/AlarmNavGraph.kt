@@ -16,14 +16,12 @@ import com.oqba26.prayertimes.models.Alarm
 import com.oqba26.prayertimes.utils.AlarmUtils
 
 @Composable
-fun AlarmNavGraph(navController: NavHostController) {
+fun AlarmNavGraph(navController: NavHostController, usePersianNumbers: Boolean) {
     val context = LocalContext.current
-    // Use immutable List for state, which is a better practice in Compose
     var alarms by remember { mutableStateOf<List<Alarm>>(AlarmUtils.loadAlarms(context)) }
 
     fun saveAndReschedule(alarm: Alarm) {
         val index = alarms.indexOfFirst { it.id == alarm.id }
-        // Always create a new list for the state update to trigger recomposition
         alarms = if (index != -1) {
             alarms.toMutableList().apply { this[index] = alarm }
         } else {
@@ -36,7 +34,7 @@ fun AlarmNavGraph(navController: NavHostController) {
 
     fun deleteAndCancel(alarm: Alarm) {
         AlarmUtils.cancelAlarm(context, alarm)
-        alarms = alarms.filter { it.id != alarm.id } // filter already returns a new List
+        alarms = alarms.filter { it.id != alarm.id }
         AlarmUtils.saveAlarms(context, alarms)
         navController.popBackStack()
     }
@@ -59,11 +57,11 @@ fun AlarmNavGraph(navController: NavHostController) {
                     }
                     val index = alarms.indexOfFirst { it.id == alarm.id }
                     if (index != -1) {
-                        // Create a new list for the state update
                         alarms = alarms.toMutableList().apply { this[index] = updatedAlarm }
                         AlarmUtils.saveAlarms(context, alarms)
                     }
-                }
+                },
+                usePersianNumbers = usePersianNumbers
             )
         }
 
@@ -72,13 +70,13 @@ fun AlarmNavGraph(navController: NavHostController) {
             arguments = listOf(navArgument("alarmJson") { type = NavType.StringType })
         ) {
             val alarmJson = it.arguments?.getString("alarmJson")
-            // Handle "new" case for creating a new alarm
             val alarm = if (alarmJson == "new") null else Gson().fromJson(alarmJson, Alarm::class.java)
             CreateEditAlarmScreen(
                 existingAlarm = alarm,
                 onSave = { updatedAlarm -> saveAndReschedule(updatedAlarm) },
                 onDelete = { alarmToDelete -> deleteAndCancel(alarmToDelete) },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                usePersianNumbers = usePersianNumbers
             )
         }
     }

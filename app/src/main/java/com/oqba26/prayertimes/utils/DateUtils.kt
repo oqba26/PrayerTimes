@@ -11,13 +11,6 @@ object DateUtils {
     private val persianNumbers = arrayOf("۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹")
     private val englishNumbers = arrayOf('0','1','2','3','4','5','6','7','8','9')
 
-    @Volatile
-    private var defaultUsePersianNumbers: Boolean = false
-
-    fun setDefaultUsePersianNumbers(enabled: Boolean) {
-        defaultUsePersianNumbers = enabled
-    }
-
     fun getHijriMonthName(month: Int): String = when (month) {
         1 -> "محرم"; 2 -> "صفر"; 3 -> "ربیع‌الاول"; 4 -> "ربیع‌الثانی"
         5 -> "جمادی‌الاول"; 6 -> "جمادی‌الثانی"; 7 -> "رجب"
@@ -133,7 +126,6 @@ object DateUtils {
         return da + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045
     }
 
-    // نرمال‌سازی: تبدیل فارسی به انگلیسی
     fun convertToEnglishNumbers(input: String): String {
         if (input.isEmpty()) return input
         var changed = false
@@ -149,17 +141,9 @@ object DateUtils {
         return if (changed) String(out) else input
     }
 
-    // نسخه تک‌پارامتری: از فلگ سراسری استفاده می‌کند و همیشه نرمال‌سازی می‌کند
-    fun convertToPersianNumbers(input: String): String =
-        convertToPersianNumbers(input, defaultUsePersianNumbers)
-
-    // تبدیل اعداد:
-    // - همیشه ابتدا به انگلیسی نرمال می‌کنیم (اگر قبلاً فارسی شده بود)
-    // - اگر enabled=true بود، انگلیسی را به فارسی تبدیل می‌کنیم
-    // - اگر enabled=false بود، همان انگلیسی را برمی‌گردانیم
     fun convertToPersianNumbers(input: String, enabled: Boolean): String {
         if (input.isEmpty()) return input
-        val normalized = convertToEnglishNumbers(input) // مهم: اول نرمال‌سازی
+        val normalized = convertToEnglishNumbers(input)
         if (!enabled) return normalized
         val out = StringBuilder(normalized.length)
         for (ch in normalized) {
@@ -256,8 +240,6 @@ object DateUtils {
         }
     }
 
-    // DateUtils.kt — داخل object DateUtils اضافه کنید
-
     fun formatShamsiLong(date: MultiDate, usePersianNumbers: Boolean): String {
         val (y, m, d) = date.getShamsiParts()
         val day = convertToPersianNumbers(d.toString(), usePersianNumbers)
@@ -267,14 +249,14 @@ object DateUtils {
     }
 
     fun formatHijriLong(date: MultiDate, usePersianNumbers: Boolean): String {
-        val (yearStr, monthName, dayStr) = date.hijriParts() // خام لاتین + نام ماه فارسی
+        val (yearStr, monthName, dayStr) = date.hijriParts()
         val day = convertToPersianNumbers(dayStr, usePersianNumbers)
         val year = convertToPersianNumbers(yearStr, usePersianNumbers)
         return "$day $monthName $year"
     }
 
     fun formatGregorianLong(date: MultiDate, usePersianNumbers: Boolean): String {
-        val (dayStr, monthName, yearStr) = date.gregorianParts() // خام لاتین + نام ماه فارسی
+        val (dayStr, monthName, yearStr) = date.gregorianParts()
         val day = convertToPersianNumbers(dayStr, usePersianNumbers)
         val year = convertToPersianNumbers(yearStr, usePersianNumbers)
         return "$day $monthName $year"

@@ -18,7 +18,7 @@ class BootReceiver : BroadcastReceiver() {
         ) {
             Log.i("BootReceiver", "Action '$action' received. Attempting to start PrayerForegroundService.")
             val serviceIntent = Intent(context, PrayerForegroundService::class.java).apply {
-                this.action = PrayerForegroundService.ACTION_START_FROM_BOOT_OR_UPDATE
+                this.action = PrayerForegroundService.ACTION_SCHEDULE_ALARMS
             }
 
             try {

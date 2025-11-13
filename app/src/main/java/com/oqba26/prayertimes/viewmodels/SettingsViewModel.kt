@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,9 +20,11 @@ import com.oqba26.prayertimes.screens.PrayerTime
 import com.oqba26.prayertimes.services.PrayerForegroundService
 import com.oqba26.prayertimes.widget.LargeModernWidgetProvider
 import com.oqba26.prayertimes.widget.ModernWidgetProvider
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -32,6 +35,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val context = getApplication<Application>().applicationContext
 
     // --- Preference Keys ---
+    private val THEME_ID = stringPreferencesKey("themeId")
+    private val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
+    private val FONT_ID = stringPreferencesKey("fontId")
     private val AUTO_SILENT_ENABLED = booleanPreferencesKey("auto_silent_enabled")
     private val IQAMA_ENABLED = booleanPreferencesKey("iqama_enabled")
     private val MINUTES_BEFORE_IQAMA = intPreferencesKey("minutes_before_iqama")
@@ -39,24 +45,24 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val USE_PERSIAN_NUMBERS = booleanPreferencesKey("use_persian_numbers")
 
     // --- State Flows ---
+    private val _themeId = MutableStateFlow("system")
+    val themeId = _themeId.asStateFlow()
 
-    // Master switch for the entire auto-silent feature
+    private val _fontId = MutableStateFlow("estedad")
+    val fontId = _fontId.asStateFlow()
+
     private val _autoSilentEnabled = MutableStateFlow(false)
     val autoSilentEnabled = _autoSilentEnabled.asStateFlow()
 
-    // Per-prayer enabled status
     private val _prayerSilentEnabled = MutableStateFlow<Map<PrayerTime, Boolean>>(emptyMap())
     val prayerSilentEnabled = _prayerSilentEnabled.asStateFlow()
 
-    // Per-prayer minutes before
     private val _prayerMinutesBefore = MutableStateFlow<Map<PrayerTime, Int>>(emptyMap())
     val prayerMinutesBefore = _prayerMinutesBefore.asStateFlow()
 
-    // Per-prayer minutes after
     private val _prayerMinutesAfter = MutableStateFlow<Map<PrayerTime, Int>>(emptyMap())
     val prayerMinutesAfter = _prayerMinutesAfter.asStateFlow()
 
-    // Iqama State
     private val _iqamaEnabled = MutableStateFlow(false)
     val iqamaEnabled = _iqamaEnabled.asStateFlow()
 
@@ -77,9 +83,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private fun loadSettings() {
         viewModelScope.launch {
             val settings = context.dataStore.data.first()
+            _themeId.value = settings[THEME_ID] ?: "system"
+            _fontId.value = settings[FONT_ID] ?: "estedad"
             _autoSilentEnabled.value = settings[AUTO_SILENT_ENABLED] ?: false
 
-            // Load per-prayer settings
             val enabledMap = mutableMapOf<PrayerTime, Boolean>()
             val beforeMap = mutableMapOf<PrayerTime, Int>()
             val afterMap = mutableMapOf<PrayerTime, Int>()
@@ -108,6 +115,26 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // --- Adhan Sound Methods ---
+    fun getAdhanSoundFlow(prayerId: String): Flow<String> {
+        val key = stringPreferencesKey("adhan_sound_$prayerId")
+        return context.dataStore.data.map { preferences ->
+            preferences[key] ?: "off" // Default to "off"
+        }
+    }
+
+    fun setAdhanSound(prayerId: String, sound: String) {
+        viewModelScope.launch {
+            val key = stringPreferencesKey("adhan_sound_$prayerId")
+            context.dataStore.edit { settings ->
+                settings[key] = sound
+            }
+            // No need to update a local state flow if the UI directly collects from the DataStore flow
+            notifyWidgets()
+            PrayerForegroundService.scheduleAlarms(context)
+        }
+    }
+
     // --- Update Functions ---
     private fun notifyWidgets() {
         val widgetManager = AppWidgetManager.getInstance(context)
@@ -127,11 +154,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun notifyService() {
-        val serviceIntent = Intent(context, PrayerForegroundService::class.java).apply {
-            action = "RESTART"
+    fun updateThemeId(newThemeId: String) {
+        viewModelScope.launch {
+            context.dataStore.edit {
+                it[THEME_ID] = newThemeId
+                it[IS_DARK_THEME] = newThemeId == "dark"
+            }
+            _themeId.value = newThemeId
+            notifyWidgets()
         }
-        ContextCompat.startForegroundService(context, serviceIntent)
+    }
+
+    fun updateFontId(newFontId: String) {
+        viewModelScope.launch {
+            context.dataStore.edit { it[FONT_ID] = newFontId }
+            _fontId.value = newFontId
+            notifyWidgets()
+        }
     }
 
     fun updateAutoSilentEnabled(isEnabled: Boolean) {
@@ -140,8 +179,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 settings[AUTO_SILENT_ENABLED] = isEnabled
             }
             _autoSilentEnabled.value = isEnabled
-            notifyWidgets()
-            notifyService()
+            PrayerForegroundService.scheduleAlarms(context)
         }
     }
 
@@ -154,8 +192,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             _prayerSilentEnabled.value = _prayerSilentEnabled.value.toMutableMap().apply {
                 this[prayer] = isEnabled
             }
-            notifyWidgets()
-            notifyService()
+            PrayerForegroundService.scheduleAlarms(context)
         }
     }
 
@@ -168,8 +205,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             _prayerMinutesBefore.value = _prayerMinutesBefore.value.toMutableMap().apply {
                 this[prayer] = minutes
             }
-            notifyWidgets()
-            notifyService()
+            PrayerForegroundService.scheduleAlarms(context)
         }
     }
 
@@ -182,8 +218,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             _prayerMinutesAfter.value = _prayerMinutesAfter.value.toMutableMap().apply {
                 this[prayer] = minutes
             }
-            notifyWidgets()
-            notifyService()
+            PrayerForegroundService.scheduleAlarms(context)
         }
     }
 
@@ -194,8 +229,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 settings[IQAMA_ENABLED] = isEnabled
             }
             _iqamaEnabled.value = isEnabled
-            notifyWidgets()
-            notifyService()
+            PrayerForegroundService.scheduleAlarms(context)
         }
     }
 
@@ -205,8 +239,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 settings[MINUTES_BEFORE_IQAMA] = minutes
             }
             _minutesBeforeIqama.value = minutes
-            notifyWidgets()
-            notifyService()
+            PrayerForegroundService.scheduleAlarms(context)
         }
     }
 
@@ -217,7 +250,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
             _is24HourFormat.value = is24Hour
             notifyWidgets()
-            notifyService()
         }
     }
 
@@ -228,7 +260,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
             _usePersianNumbers.value = usePersian
             notifyWidgets()
-            notifyService()
         }
     }
 }

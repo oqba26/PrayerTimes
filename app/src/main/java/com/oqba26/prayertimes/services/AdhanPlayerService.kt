@@ -11,7 +11,6 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.IBinder
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.oqba26.prayertimes.R
@@ -24,20 +23,22 @@ class AdhanPlayerService : Service() {
 
         const val ACTION_PLAY = "PLAY_ADHAN"
         const val ACTION_STOP = "STOP_ADHAN"
-        const val EXTRA_PRAYER_ID = "PRAYER_ID" // fajr/dhuhr/asr/maghrib/isha
+        const val EXTRA_PRAYER_ID = "PRAYER_ID" // fajr/dhuhr/etc. for notification title
+        const val EXTRA_ADHAN_SOUND = "ADHAN_SOUND" // The sound name, e.g., "makkah"
 
-        fun playNow(context: Context, prayerId: String = "dhuhr") {
+        fun playNow(context: Context, prayerId: String, adhanSound: String?) {
+            if (adhanSound.isNullOrEmpty() || adhanSound == "off") return
+
             val intent = Intent(context, AdhanPlayerService::class.java).apply {
                 action = ACTION_PLAY
                 putExtra(EXTRA_PRAYER_ID, prayerId)
+                putExtra(EXTRA_ADHAN_SOUND, adhanSound)
             }
-            // استفاده از ContextCompat برای سازگاری با همه API ها
             ContextCompat.startForegroundService(context, intent)
         }
 
         fun stop(context: Context) {
             val intent = Intent(context, AdhanPlayerService::class.java).apply { action = ACTION_STOP }
-            // برای توقف لازم نیست foreground service استارت کنیم
             context.startService(intent)
         }
     }
@@ -51,25 +52,33 @@ class AdhanPlayerService : Service() {
         ensureChannel()
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
                 stopPlayback()
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                }
                 stopSelf()
             }
             ACTION_PLAY -> {
                 val prayerId = intent.getStringExtra(EXTRA_PRAYER_ID) ?: "dhuhr"
-                startForeground(NOTIF_ID, buildNotification(prayerId))
-                startPlayback(resolveSelectedVoiceRes())
+                val adhanSound = intent.getStringExtra(EXTRA_ADHAN_SOUND) ?: "makkah"
+                val resId = resolveSelectedVoiceRes(adhanSound)
+
+                if (resId != 0) {
+                    startForeground(NOTIF_ID, buildNotification(prayerId))
+                    startPlayback(resId)
+                } else {
+                    // If sound is not found, just stop
+                    stopSelf()
+                }
             }
             else -> stopSelf()
         }
         return START_NOT_STICKY
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
     private fun startPlayback(resId: Int) {
         stopPlayback()
         val attrs = AudioAttributes.Builder()
@@ -79,20 +88,32 @@ class AdhanPlayerService : Service() {
 
         player = MediaPlayer().apply {
             setAudioAttributes(attrs)
-            val afd = resources.openRawResourceFd(resId)!!
-            setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            afd.close()
-            isLooping = false
-            setOnCompletionListener {
-                stopForeground(STOP_FOREGROUND_REMOVE)
+            try {
+                val afd = resources.openRawResourceFd(resId) ?: return
+                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                afd.close()
+                isLooping = false
+                setOnCompletionListener {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                    }
+                    stopSelf()
+                }
+                setOnErrorListener { _, _, _ ->
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                    }
+                    stopSelf(); true
+                }
+                prepare()
+                start()
+            } catch (_: Exception) {
+                // Handle exceptions, e.g., file not found
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                }
                 stopSelf()
             }
-            setOnErrorListener { _, _, _ ->
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf(); true
-            }
-            prepare()
-            start()
         }
     }
 
@@ -123,12 +144,12 @@ class AdhanPlayerService : Service() {
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_notification_icon) // Changed for compatibility
             .setContentTitle(title)
             .setContentText("برای قطع پخش، توقف را بزنید")
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setCategory(Notification.CATEGORY_ALARM)
             .addAction(0, "توقف", stopPending)
             .build()
     }
@@ -139,15 +160,23 @@ class AdhanPlayerService : Service() {
             val ch = NotificationChannel(
                 CHANNEL_ID, "اذان", NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                setSound(null, null)      // صدا از MediaPlayer پخش می‌شود
+                setSound(null, null)      // Sound is played by MediaPlayer
                 description = "پخش اذان در زمان نماز"
                 enableVibration(false)
-                setBypassDnd(true)        // کمک می‌کند در حالت DND هم دیده شود
+                setBypassDnd(true)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             nm.createNotificationChannel(ch)
         }
     }
 
-    private fun resolveSelectedVoiceRes(): Int = R.raw.azan_makkah_4
+    private fun resolveSelectedVoiceRes(soundName: String): Int {
+        return when (soundName) {
+            "makkah" -> R.raw.azan_makkah_4 // Assuming this is the default
+            //"madina" -> R.raw.azan_madina // Assuming you have this file
+            //"abdulbasit" -> R.raw.azan_abdulbasit // Assuming you have this file
+            // Add other adhan sounds here
+            else -> R.raw.azan_makkah_4 // Default fallback
+        }
+    }
 }

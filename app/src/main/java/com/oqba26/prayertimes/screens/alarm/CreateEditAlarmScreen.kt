@@ -82,7 +82,8 @@ fun CreateEditAlarmScreen(
     existingAlarm: Alarm?,
     onSave: (Alarm) -> Unit,
     onDelete: (Alarm) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    usePersianNumbers: Boolean
 ) {
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -150,7 +151,8 @@ fun CreateEditAlarmScreen(
                 onChange = { h, m ->
                     selectedHour = h
                     selectedMinute = m
-                }
+                },
+                usePersianNumbers = usePersianNumbers
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -241,13 +243,13 @@ private fun PersianAnalogTimePicker(
     minute: Int,
     is24Hour: Boolean = true,
     onChange: (Int, Int) -> Unit,
+    usePersianNumbers: Boolean,
     @SuppressLint("ModifierParameter")
     modifier: Modifier = Modifier
 ) {
-    val usePersianNumbers = true
     var mode by remember { mutableStateOf("hour") } // "hour" یا "minute"
 
-    val display = remember(hour, minute) {
+    val display = remember(hour, minute, usePersianNumbers) {
         com.oqba26.prayertimes.utils.DateUtils.formatDisplayTime(
             String.format(java.util.Locale.US, "%02d:%02d", hour, minute),
             true,
@@ -279,7 +281,7 @@ private fun PersianAnalogTimePicker(
                 selectedIndex = selectedIndex,
                 labelForIndex = { idx ->
                     val value = if (is24Hour) idx else (idx + 1)
-                    com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers(value.toString(), enabled = true)
+                    com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers(value.toString(), enabled = usePersianNumbers)
                 },
                 onSelect = { idx ->
                     val value = if (is24Hour) idx else (idx + 1)
@@ -297,7 +299,7 @@ private fun PersianAnalogTimePicker(
                     val value = idx
                     com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers(
                         String.format(java.util.Locale.US, "%02d", value),
-                        enabled = true
+                        enabled = usePersianNumbers
                     )
                 },
                 onSelect = { idx -> onChange(hour, idx) },

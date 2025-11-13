@@ -32,12 +32,24 @@ class NoteEditorActivity : ComponentActivity() {
         const val EXTRA_SAVED_USER_NOTE = "EXTRA_SAVED_USER_NOTE"
         const val EXTRA_DELETED_NOTE_ID = "EXTRA_DELETED_NOTE_ID"
         const val EXTRA_IS_DARK_THEME = "EXTRA_IS_DARK_THEME"
+        const val EXTRA_USE_PERSIAN_NUMBERS = "EXTRA_USE_PERSIAN_NUMBERS"
+        const val EXTRA_USE_24_HOUR_FORMAT = "EXTRA_USE_24_HOUR_FORMAT"
 
-        fun newIntent(context: Context, shamsiDate: String, existingNote: UserNote?, isDark: Boolean): Intent {
+
+        fun newIntent(
+            context: Context,
+            shamsiDate: String,
+            existingNote: UserNote?,
+            isDark: Boolean,
+            usePersianNumbers: Boolean,
+            use24HourFormat: Boolean
+        ): Intent {
             return Intent(context, NoteEditorActivity::class.java).apply {
                 putExtra(EXTRA_SHAMSI_DATE_STRING, shamsiDate)
                 putExtra(EXTRA_EXISTING_USER_NOTE, existingNote)
                 putExtra(EXTRA_IS_DARK_THEME, isDark)
+                putExtra(EXTRA_USE_PERSIAN_NUMBERS, usePersianNumbers)
+                putExtra(EXTRA_USE_24_HOUR_FORMAT, use24HourFormat)
             }
         }
     }
@@ -96,10 +108,9 @@ class NoteEditorActivity : ComponentActivity() {
         val fontId = prefs.getString("fontId", "vazirmatn") ?: "vazirmatn"
         val appFontFamily = AppFonts.familyFor(fontId)
         val isDarkFromIntent = intent.getBooleanExtra(EXTRA_IS_DARK_THEME, false)
-        val usePersianNumbers = prefs.getBoolean("use_persian_numbers", true)
-        val use24HourFormat = prefs.getBoolean("use_24_hour_format", true)
+        val usePersianNumbers = intent.getBooleanExtra(EXTRA_USE_PERSIAN_NUMBERS, true)
+        val use24HourFormat = intent.getBooleanExtra(EXTRA_USE_24_HOUR_FORMAT, true)
 
-        DateUtils.setDefaultUsePersianNumbers(usePersianNumbers)
 
         setContent {
             PrayerTimesTheme(darkTheme = isDarkFromIntent, appFontFamily = appFontFamily) {

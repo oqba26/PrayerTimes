@@ -125,7 +125,7 @@ private fun YearPickerDialog(
                     androidx.compose.foundation.lazy.LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
                         items(years.size) { idx ->
                             val year = years[idx]
-                            val yearLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(year.toString()) else year.toString()
+                            val yearLabel = DateUtils.convertToPersianNumbers(year.toString(), usePersianNumbers)
                             Text(
                                 text = yearLabel,
                                 modifier = Modifier
@@ -161,8 +161,8 @@ private fun YearPickerDialog(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
 @Suppress("UNUSED_PARAMETER")
+@Composable
 fun ShamsiDatePicker(
     initialDate: MultiDate = DateUtils.getCurrentDate(),
     onDateSelected: (MultiDate) -> Unit,
@@ -196,7 +196,7 @@ fun ShamsiDatePicker(
             onDismissRequest = { showYearPickerDialog = false },
             onYearSelected = { year -> displayedShamsiYear = year; showYearPickerDialog = false },
             usePersianNumbers = usePersianNumbers,
-            isDark = isDarkTheme // اگر YearPickerDialog هنوز isDark ندارد، این پارامتر را حذف کن
+            isDark = isDarkTheme
         )
     }
 
@@ -217,7 +217,6 @@ fun ShamsiDatePicker(
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Column(modifier = Modifier.fillMaxWidth()) {
 
-                        // هدر تمام‌عرض مثل اپ‌بار
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -226,13 +225,12 @@ fun ShamsiDatePicker(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "انتخاب تاریخ شمسی",
+                                text = DateUtils.convertToPersianNumbers("انتخاب تاریخ شمسی", usePersianNumbers),
                                 color = headerTextColor,
                                 style = MaterialTheme.typography.titleLarge
                             )
                         }
 
-                        // محتوای قبلی با پدینگ داخلی
                         Column(modifier = Modifier.padding(16.dp)) {
 
                             Row(
@@ -258,7 +256,7 @@ fun ShamsiDatePicker(
                                                 .clickable { showMonthPicker = true }
                                                 .padding(horizontal = 8.dp)
                                         ) {
-                                            Text(getShamsiMonthNameLocal(displayedShamsiMonth), style = MaterialTheme.typography.titleMedium)
+                                            Text(DateUtils.convertToPersianNumbers(getShamsiMonthNameLocal(displayedShamsiMonth), usePersianNumbers), style = MaterialTheme.typography.titleMedium)
                                             Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب ماه")
                                         }
                                         DropdownMenu(
@@ -270,7 +268,7 @@ fun ShamsiDatePicker(
                                                 DropdownMenuItem(
                                                     text = {
                                                         Text(
-                                                            getShamsiMonthNameLocal(month),
+                                                            DateUtils.convertToPersianNumbers(getShamsiMonthNameLocal(month), usePersianNumbers),
                                                             textAlign = TextAlign.Center,
                                                             modifier = Modifier.fillMaxWidth()
                                                         )
@@ -290,7 +288,7 @@ fun ShamsiDatePicker(
                                             .clickable { showYearPickerDialog = true }
                                             .padding(horizontal = 8.dp)
                                     ) {
-                                        val yearLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(displayedShamsiYear.toString()) else displayedShamsiYear.toString()
+                                        val yearLabel = DateUtils.convertToPersianNumbers(displayedShamsiYear.toString(), usePersianNumbers)
                                         Text(yearLabel, style = MaterialTheme.typography.titleMedium)
                                         Icon(Icons.Default.ArrowDropDown, contentDescription = "انتخاب سال")
                                     }
@@ -313,7 +311,7 @@ fun ShamsiDatePicker(
                             ) {
                                 val daysOfWeek = listOf("ش", "ی", "د", "س", "چ", "پ", "ج")
                                 daysOfWeek.forEach { dayLabel ->
-                                    Text(dayLabel, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                    Text(DateUtils.convertToPersianNumbers(dayLabel, usePersianNumbers), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                                 }
                             }
 
@@ -361,7 +359,7 @@ fun ShamsiDatePicker(
                                             .clickable { selectedUserClickedDay = dayNumber },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val dayLabel = if (usePersianNumbers) DateUtils.convertToPersianNumbers(dayNumber.toString()) else dayNumber.toString()
+                                        val dayLabel = DateUtils.convertToPersianNumbers(dayNumber.toString(), usePersianNumbers)
                                         Text(dayLabel, color = textColor, style = MaterialTheme.typography.bodyMedium)
                                     }
                                 }
@@ -373,14 +371,12 @@ fun ShamsiDatePicker(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // دکمه‌ها: «انصراف» چپ (قرمز)، «تایید» راست (هم‌رنگ هدر)
                             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
                                 ) {
-                                    // انصراف = قرمز
                                     Button(
                                         onClick = onDismiss,
                                         modifier = Modifier.align(Alignment.CenterStart),
@@ -390,7 +386,6 @@ fun ShamsiDatePicker(
                                         )
                                     ) { Text("انصراف") }
 
-                                    // تایید = هم‌رنگ هدر (آبی فیروزه‌ای/بنفش تیره)
                                     Button(
                                         onClick = {
                                             val resultDate = DateUtils.createMultiDateFromShamsi(

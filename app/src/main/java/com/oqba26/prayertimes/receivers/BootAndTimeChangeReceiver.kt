@@ -11,11 +11,8 @@ class BootAndTimeChangeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("BootAndTimeChangeRcvr", "onReceive: ${intent.action}")
         val svc = Intent(context, PrayerForegroundService::class.java).apply {
-            action = PrayerForegroundService.ACTION_START_FROM_BOOT_OR_UPDATE
+            action = PrayerForegroundService.ACTION_SCHEDULE_ALARMS
         }
         ContextCompat.startForegroundService(context, svc)
-
-        // Schedule silent alarms
-        SilentScheduler(context).schedule()
     }
 }

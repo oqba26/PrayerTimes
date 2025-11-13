@@ -1,10 +1,10 @@
 package com.oqba26.prayertimes
 
+import android.annotation.SuppressLint
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,16 +46,15 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.content.edit
 import androidx.core.view.WindowCompat
-import com.oqba26.prayertimes.adhan.AdhanScheduler
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.oqba26.prayertimes.screens.CalendarScreenEntryPoint
 import com.oqba26.prayertimes.screens.SettingsScreen
-import com.oqba26.prayertimes.services.AdhanPlayerService
+import com.oqba26.prayertimes.services.NotificationService
 import com.oqba26.prayertimes.services.PrayerForegroundService
 import com.oqba26.prayertimes.theme.PrayerTimesTheme
 import com.oqba26.prayertimes.ui.AppFonts
-import com.oqba26.prayertimes.utils.DateUtils
 import com.oqba26.prayertimes.viewmodels.PrayerViewModel
 import com.oqba26.prayertimes.viewmodels.SettingsViewModel
 import com.oqba26.prayertimes.widget.LargeModernWidgetProvider
@@ -65,35 +65,36 @@ private val WIDGET_PROVIDERS = listOf(
     LargeModernWidgetProvider::class.java
 )
 
-@RequiresApi(Build.VERSION_CODES.M)
+@RequiresApi(Build.VERSION_CODES.O)
 class MainActivity : ComponentActivity() {
 
     private val prayerViewModel: PrayerViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    private fun forceUpdateNotification() {
+        val intent = Intent(this, PrayerForegroundService::class.java).apply {
+            action = PrayerForegroundService.ACTION_UPDATE
+        }
+        startService(intent)
+    }
+
+    @SuppressLint("UnusedValue")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        NotificationService.createNotificationChannels(this)
         startPrayerServiceIfNeeded()
-
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
 
         setContent {
             val ctx = this
 
-            val initialThemeId = remember { prefs.getString("themeId", "system") ?: "system" }
-            val initialFontId = remember { prefs.getString("fontId", "estedad") ?: "estedad" }
-            val initialAdhanEnabled = remember { prefs.getBoolean("adhan_enabled", true) }
-
-            var themeId by remember { mutableStateOf(initialThemeId) }
-            var fontId by remember { mutableStateOf(initialFontId) }
-            var showSettings by remember { mutableStateOf(false) }
-            var showExitDialog by remember { mutableStateOf(false) }
-            var adhanEnabled by remember { mutableStateOf(initialAdhanEnabled) }
-
+            val themeId by settingsViewModel.themeId.collectAsState()
+            val fontId by settingsViewModel.fontId.collectAsState()
             val is24HourFormat by settingsViewModel.is24HourFormat.collectAsState()
             val usePersianNumbers by settingsViewModel.usePersianNumbers.collectAsState()
+
+            var showSettings by remember { mutableStateOf(false) }
+            var showExitDialog by remember { mutableStateOf(false) }
 
             val appFontFamily = remember(fontId) { AppFonts.familyFor(fontId) }
 
@@ -103,31 +104,25 @@ class MainActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            val onSettingsChanged = remember(ctx) {
-                {
-                    val svcIntent = Intent(ctx, PrayerForegroundService::class.java).apply { action = "RESTART" }
-                    ContextCompat.startForegroundService(ctx, svcIntent)
-                    updateAllWidgetsNow(ctx)
+            DisposableEffect(lifecycle, isDarkTheme) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        applySystemBars(isDarkTheme)
+                    }
                 }
+                lifecycle.addObserver(observer)
+                onDispose { lifecycle.removeObserver(observer) }
             }
 
-            LaunchedEffect(isDarkTheme) {
-                applySystemBars(isDarkTheme)
-            }
 
-            LaunchedEffect(usePersianNumbers) {
-                DateUtils.setDefaultUsePersianNumbers(usePersianNumbers)
+            LaunchedEffect(usePersianNumbers, is24HourFormat, themeId, fontId) {
+                forceUpdateNotification()
+                updateAllWidgetsNow(ctx)
             }
 
             val onToggleTheme: () -> Unit = {
                 val newThemeId = if (isDarkTheme) "light" else "dark"
-                prefs.edit {
-                    putString("themeId", newThemeId)
-                    putBoolean("is_dark_theme", newThemeId == "dark")
-                }
-                themeId = newThemeId
-                applySystemBars(newThemeId == "dark")
-                onSettingsChanged()
+                settingsViewModel.updateThemeId(newThemeId)
             }
 
             androidx.activity.compose.BackHandler {
@@ -149,31 +144,20 @@ class MainActivity : ComponentActivity() {
                     )
 
                     if (showSettings) {
-                        SettingsScreen(
-                            onClose = { showSettings = false },
-                            isDarkThemeActive = isDarkTheme,
-                            currentFontId = fontId,
-                            onSelectFont = { newFontId ->
-                                fontId = newFontId
-                                prefs.edit { putString("fontId", newFontId) }
-                                onSettingsChanged()
-                            },
-                            adhanEnabled = adhanEnabled,
-                            onAdhanEnabledChange = { enabled ->
-                                adhanEnabled = enabled
-                                prefs.edit { putBoolean("adhan_enabled", enabled) }
-                                if (!enabled) {
-                                    AdhanScheduler.cancelAll(ctx)
-                                    AdhanPlayerService.stop(ctx)
-                                }
-                                onSettingsChanged()
-                            },
-                            onAddWidget = { requestPinHomeWidget(ctx) },
-                            usePersianNumbers = usePersianNumbers,
-                            onUsePersianNumbersChange = { settingsViewModel.updateUsePersianNumbers(it) },
-                            is24HourFormat = is24HourFormat,
-                            onIs24HourFormatChange = { settingsViewModel.updateIs24HourFormat(it) }
-                        )
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            SettingsScreen(
+                                onClose = { showSettings = false },
+                                onAddWidget = { requestPinHomeWidget(ctx) },
+                                isDarkThemeActive = isDarkTheme,
+                                currentFontId = fontId,
+                                onSelectFont = { settingsViewModel.updateFontId(it) },
+                                usePersianNumbers = usePersianNumbers,
+                                onUsePersianNumbersChange = { settingsViewModel.updateUsePersianNumbers(it) },
+                                is24HourFormat = is24HourFormat,
+                                onIs24HourFormatChange = { settingsViewModel.updateIs24HourFormat(it) },
+                                settingsViewModel = settingsViewModel
+                            )
+                        }
                     }
 
                     if (showExitDialog) {
@@ -188,10 +172,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        applySystemBars(isDarkThemeEffective())
-    }
 
     private fun startPrayerServiceIfNeeded() {
         val svc = Intent(this, PrayerForegroundService::class.java).apply { action = "START" }
@@ -206,15 +186,6 @@ class MainActivity : ComponentActivity() {
             return
         }
         awm.requestPinAppWidget(ComponentName(ctx, LargeModernWidgetProvider::class.java), null, null)
-    }
-
-    private fun isDarkThemeEffective(): Boolean {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        return when (prefs.getString("themeId", "system")) {
-            "dark" -> true
-            "light" -> false
-            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        }
     }
 
     @Suppress("DEPRECATION")

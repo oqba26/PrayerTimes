@@ -87,25 +87,19 @@ import androidx.compose.ui.unit.sp
 @Composable
 private fun CreateEditNoteTopBar(
     isEditMode: Boolean,
-    isDarkThemeActive: Boolean,   // 🔹 پارامتر جدید
+    isDarkThemeActive: Boolean,
     onBackClick: () -> Unit,
     onSaveClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-
-
     val bg = if (isDarkThemeActive) Color(0xFF4F378B) else Color(0xFF0E7490)
     val fg = Color.White
 
-
-
-    // پس زمینه تا لبه بالا (زیر استاتوس‌بار) کشیده می‌شود
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(bg)
     ) {
-        // محتوا با احترام به اینست‌های استاتوس‌بار پایین می‌رود
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -113,7 +107,6 @@ private fun CreateEditNoteTopBar(
                 .height(56.dp)
                 .padding(horizontal = 4.dp)
         ) {
-            // Back
             IconButton(
                 onClick = onBackClick,
                 modifier = Modifier.align(Alignment.CenterStart)
@@ -121,7 +114,6 @@ private fun CreateEditNoteTopBar(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت", tint = fg)
             }
 
-            // Title
             Text(
                 text = if (isEditMode) "ویرایش یادداشت" else "یادداشت جدید",
                 color = fg,
@@ -130,7 +122,6 @@ private fun CreateEditNoteTopBar(
                 modifier = Modifier.align(Alignment.Center)
             )
 
-            // Actions
             Row(
                 modifier = Modifier.align(Alignment.CenterEnd),
                 verticalAlignment = Alignment.CenterVertically
@@ -165,9 +156,6 @@ fun CreateEditNoteScreen(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
-
-    // حالت ادیت بر اساس داشتن محتوا (برای این اکتیویتی کافیه چون بعد از ذخیره بسته میشه)
     val isEditMode = initialNoteContent.isNotEmpty()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -185,7 +173,6 @@ fun CreateEditNoteScreen(
     var noteContent by rememberSaveable { mutableStateOf(initialNoteContent) }
     var isNotificationEnabled by rememberSaveable { mutableStateOf(isNotificationEnabledInitial) }
 
-    // تاریخ یادآوری جدا از تاریخ یادداشت نگه داشته می‌شود
     var selectedReminderDate by rememberSaveable(reminderTimeInitial) {
         mutableStateOf(reminderTimeInitial?.let { millis ->
             val cal = Calendar.getInstance().apply { timeInMillis = millis }
@@ -205,7 +192,6 @@ fun CreateEditNoteScreen(
 
     var combinedReminderTimeMillis by rememberSaveable { mutableStateOf(reminderTimeInitial) }
 
-    // فقط زمان یادآوری محاسبه می‌شود؛ تاریخ یادداشت تغییر نمی‌کند
     LaunchedEffect(selectedReminderDate, selectedReminderHour, selectedReminderMinute, isNotificationEnabled) {
         combinedReminderTimeMillis =
             if (isNotificationEnabled && selectedReminderDate != null) {
@@ -256,7 +242,7 @@ fun CreateEditNoteScreen(
         topBar = {
             CreateEditNoteTopBar(
                 isEditMode = isEditMode,
-                isDarkThemeActive = isDark,  // 🔹 اضافه شد
+                isDarkThemeActive = isDark,
                 onBackClick = onBackClick,
                 onSaveClick = { onSaveClick(selectedDate, noteContent, isNotificationEnabled, combinedReminderTimeMillis) },
                 onDeleteClick = { showDeleteDialog = true }
@@ -275,7 +261,7 @@ fun CreateEditNoteScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "یادداشت برای تاریخ: ${DateUtils.convertToPersianNumbers(selectedDate.shamsi, usePersianNumbers)}",
+                text = "یادداشت برای تاریخ: ${DateUtils.formatShamsiLong(selectedDate, usePersianNumbers)}",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -322,7 +308,7 @@ fun CreateEditNoteScreen(
             val reminderButtonText = if (isNotificationEnabled && selectedReminderDate != null) {
                 val rawTime = String.format(Locale.US, "%02d:%02d", selectedReminderHour, selectedReminderMinute)
                 val displayTime = DateUtils.formatDisplayTime(rawTime, use24HourFormat, usePersianNumbers)
-                "یادآوری در: ${DateUtils.convertToPersianNumbers(selectedReminderDate!!.shamsi, usePersianNumbers)} ساعت $displayTime"
+                "یادآوری در: ${DateUtils.formatShamsiLong(selectedReminderDate!!, usePersianNumbers)} ساعت $displayTime"
             } else {
                 "تنظیم یادآوری"
             }
@@ -332,7 +318,7 @@ fun CreateEditNoteScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = isNotificationEnabled
             ) {
-                Text(DateUtils.convertToPersianNumbers(reminderButtonText, usePersianNumbers))
+                Text(reminderButtonText)
             }
 
             if (isNotificationEnabled && selectedReminderDate != null) {
@@ -370,17 +356,7 @@ private fun PersianAnalogTimePickerDialog(
     val headerColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
     val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
 
-    // حالت‌های داخلی بر اساس 24/12 ساعته
-    var hour by remember {
-        mutableIntStateOf(
-            if (is24Hour) initialHour
-            else when (initialHour) {
-                0 -> 12
-                in 1..12 -> initialHour
-                else -> initialHour - 12
-            }
-        )
-    }
+    var hour by remember { mutableIntStateOf(if (is24Hour) initialHour else ((initialHour - 1).let { if (it < 0) 11 else it } % 12) + 1) }
     var minute by remember { mutableIntStateOf(initialMinute.coerceIn(0, 59)) }
     var isPm by remember { mutableStateOf(!is24Hour && initialHour >= 12) }
 
@@ -389,14 +365,10 @@ private fun PersianAnalogTimePickerDialog(
             when {
                 isPm && hour in 1..11 -> hour + 12
                 !isPm && hour == 12 -> 0
-                else -> if (hour == 12) 12 else hour
+                else -> hour
             }
         }
-        DateUtils.formatDisplayTime(
-            String.format(Locale.US, "%02d:%02d", h24, minute),
-            is24Hour,
-            usePersianNumbers
-        )
+        DateUtils.formatDisplayTime(String.format(Locale.US, "%02d:%02d", h24, minute), is24Hour, usePersianNumbers)
     }
 
     BasicAlertDialog(onDismissRequest = onDismiss) {
@@ -408,28 +380,20 @@ private fun PersianAnalogTimePickerDialog(
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
 
-                // هدر
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .background(headerColor),
+                    modifier = Modifier.fillMaxWidth().height(56.dp).background(headerColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("انتخاب ساعت", color = headerTextColor, style = MaterialTheme.typography.titleLarge)
                 }
 
-                // نمایش دیجیتال فارسی
                 Text(
                     text = headerText,
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)
                 )
 
-                // سوییچ حالت (ساعت/دقیقه)
                 var mode by remember { mutableStateOf("hour") }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -440,7 +404,6 @@ private fun PersianAnalogTimePickerDialog(
                     FilterChip(selected = mode == "minute", onClick = { mode = "minute" }, label = { Text("دقیقه") })
                 }
 
-                // AM/PM (فقط در 12ساعته)
                 if (!is24Hour) {
                     Spacer(Modifier.height(8.dp))
                     Row(
@@ -455,47 +418,32 @@ private fun PersianAnalogTimePickerDialog(
 
                 Spacer(Modifier.height(12.dp))
 
-                // صفحه آنالوگ (Canvas) با اعداد فارسی
                 if (mode == "hour") {
-                    val count = if (is24Hour) 24 else 12
-                    val selectedIndex = if (is24Hour) hour.coerceIn(0, 23) else ((hour - 1).let { if (it < 0) 11 else it } % 12)
                     CircularDialNote(
                         count = if (is24Hour) 24 else 12,
                         selectedIndex = if (is24Hour) hour.coerceIn(0, 23) else ((hour - 1).let { if (it < 0) 11 else it } % 12),
-                        labelForIndex = { idx ->
-                            val value = if (is24Hour) idx else (idx + 1)
-                            DateUtils.convertToPersianNumbers(value.toString(), enabled = usePersianNumbers)
-                        },
+                        labelForIndex = { idx -> DateUtils.convertToPersianNumbers((if (is24Hour) idx else (idx + 1)).toString(), usePersianNumbers) },
                         onSelect = { idx -> hour = if (is24Hour) idx else (idx + 1) },
-                        modifier = Modifier.align(Alignment.CenterHorizontally) // وسط‌چین
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
                 } else {
-                    val selectedIndex = (minute / 5).coerceIn(0, 11)
                     CircularDialNote(
                         count = 60,
                         selectedIndex = minute.coerceIn(0, 59),
-                        labelForIndex = { idx ->
-                            DateUtils.convertToPersianNumbers(String.format(Locale.US, "%02d", idx), enabled = usePersianNumbers)
-                        },
+                        labelForIndex = { idx -> DateUtils.convertToPersianNumbers(String.format(Locale.US, "%02d", idx), usePersianNumbers) },
                         onSelect = { idx -> minute = idx },
-                        modifier = Modifier.align(Alignment.CenterHorizontally) // وسط‌چین
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
                 }
 
-                // اکشن‌ها: انصراف (قرمز)، تایید (هم‌رنگ هدر)
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp, top = 12.dp)
+                        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 16.dp, top = 12.dp)
                     ) {
                         Button(
                             onClick = onDismiss,
                             modifier = Modifier.align(Alignment.CenterStart),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            )
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
                         ) { Text("انصراف") }
 
                         Button(
@@ -504,16 +452,13 @@ private fun PersianAnalogTimePickerDialog(
                                     when {
                                         isPm && hour in 1..11 -> hour + 12
                                         !isPm && hour == 12 -> 0
-                                        else -> if (hour == 12) 12 else hour
+                                        else -> hour
                                     }
                                 }
                                 onConfirm(finalHour, minute)
                             },
                             modifier = Modifier.align(Alignment.CenterEnd),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = headerColor,
-                                contentColor = headerTextColor
-                            )
+                            colors = ButtonDefaults.buttonColors(containerColor = headerColor, contentColor = headerTextColor)
                         ) { Text("تایید") }
                     }
                 }
@@ -537,21 +482,18 @@ private fun CircularDialNote(
     val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
     val highlightBackground = primaryColor.copy(alpha = 0.22f)
-    val glowColor = primaryColor.copy(alpha = 0.35f)  // ✨ نور مخملی عقربه
+    val glowColor = primaryColor.copy(alpha = 0.35f)
     val labelTextSizePx = with(LocalDensity.current) { 16.sp.toPx() }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     Box(modifier = modifier.size(dialSize), contentAlignment = Alignment.Center) {
-        // زاویه فعلی (با اصلاح حرکت بین نزدیک‌ترین مسیر)
         val prevAngle = remember { mutableFloatStateOf(selectedIndex * (360f / count)) }
         val targetAngle = selectedIndex * (360f / count)
 
-// اختلاف زاویه
         var delta = targetAngle - prevAngle.floatValue
         if (delta > 180f) delta -= 360f
         if (delta < -180f) delta += 360f
 
-// 📽️ انیمیشن چرخش بین زوایای دورانی
         val animatedAngle by animateFloatAsState(
             targetValue = prevAngle.floatValue + delta,
             animationSpec = tween(durationMillis = 300, easing = LinearOutSlowInEasing),
@@ -559,38 +501,23 @@ private fun CircularDialNote(
         )
 
         Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(count) {
-                    detectTapGestures { offset ->
-                        val idx = angleIndexFromOffset(
-                            offset.x, offset.y,
-                            size.width.toFloat(), size.height.toFloat(),
-                            count, isRtl
-                        )
+            modifier = Modifier.fillMaxSize().pointerInput(count) {
+                detectTapGestures { offset ->
+                    val idx = angleIndexFromOffset(offset.x, offset.y, size.width.toFloat(), size.height.toFloat(), count, isRtl)
+                    onSelect(idx)
+                }
+            }.pointerInput(count) {
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        val idx = angleIndexFromOffset(offset.x, offset.y, size.width.toFloat(), size.height.toFloat(), count, isRtl)
+                        onSelect(idx)
+                    },
+                    onDrag = { change, _ ->
+                        val idx = angleIndexFromOffset(change.position.x, change.position.y, size.width.toFloat(), size.height.toFloat(), count, isRtl)
                         onSelect(idx)
                     }
-                }
-                .pointerInput(count) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            val idx = angleIndexFromOffset(
-                                offset.x, offset.y,
-                                size.width.toFloat(), size.height.toFloat(),
-                                count, isRtl
-                            )
-                            onSelect(idx)
-                        },
-                        onDrag = { change, _ ->
-                            val idx = angleIndexFromOffset(
-                                change.position.x, change.position.y,
-                                size.width.toFloat(), size.height.toFloat(),
-                                count, isRtl
-                            )
-                            onSelect(idx)
-                        }
-                    )
-                }
+                )
+            }
         ) {
             val canvasSize = this.size
             val r = canvasSize.minDimension / 2f * ringRadiusFraction
@@ -601,13 +528,11 @@ private fun CircularDialNote(
             val cx = canvasSize.width / 2f
             val cy = canvasSize.height / 2f
 
-            // زاویه‌ فعلی عقربه (با انیمیشن)
             val selAngleRad = Math.toRadians((animatedAngle - 90f).toDouble())
             val handLen = r * 0.75f
             val handX = cx + (handLen * kotlin.math.cos(selAngleRad)).toFloat()
             val handY = cy + (handLen * kotlin.math.sin(selAngleRad)).toFloat()
 
-            // نور ملایم اطراف عقربه
             drawLine(
                 color = glowColor,
                 start = Offset(cx, cy),
@@ -615,7 +540,6 @@ private fun CircularDialNote(
                 strokeWidth = 8.dp.toPx(),
                 alpha = 0.3f
             )
-            // عقربه اصلی
             drawLine(
                 color = primaryColor,
                 start = Offset(cx, cy),
@@ -624,10 +548,8 @@ private fun CircularDialNote(
             )
             drawCircle(color = primaryColor, radius = 6.dp.toPx(), center = Offset(cx, cy))
 
-            // اعداد
             for (i in 0 until count) {
-                val shouldDraw =
-                    count <= 24 || i % 5 == 0 || i == selectedIndex
+                val shouldDraw = count <= 24 || i % 5 == 0 || i == selectedIndex
 
                 if (shouldDraw) {
                     val angleRad = Math.toRadians((i * stepAngle - 90).toDouble())
@@ -635,11 +557,7 @@ private fun CircularDialNote(
                     val y = cy + (r * kotlin.math.sin(angleRad)).toFloat()
 
                     if (i == selectedIndex) {
-                        drawCircle(
-                            color = highlightBackground,
-                            radius = 18.dp.toPx(),
-                            center = Offset(x, y)
-                        )
+                        drawCircle(color = highlightBackground, radius = 18.dp.toPx(), center = Offset(x, y))
                     }
 
                     val paint = android.graphics.Paint().apply {
@@ -655,8 +573,7 @@ private fun CircularDialNote(
         }
     }
 }
-@Suppress("unused")
-// نسخه کامل و هماهنگ با CircularDialNote
+
 private fun angleIndexFromOffset(
     x: Float,
     y: Float,
@@ -673,14 +590,13 @@ private fun angleIndexFromOffset(
     var angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble()))
     if (isRtl) angle = -angle
 
-    // تصحیح جهت چرخش
     angle = -angle
 
     val degFrom12 = ((90 - angle + 360) % 360).toFloat()
     val stepAngle = 360f / count
     return ((degFrom12 / stepAngle) + 0.5f).toInt() % count
 }
-@Suppress("unused")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeleteConfirmationDialog(
@@ -688,8 +604,8 @@ private fun DeleteConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val topBarLight = Color(0xFF0E7490) // آبی فیروزه‌ای
-    val topBarDark  = Color(0xFF4F378B) // بنفش تیره
+    val topBarLight = Color(0xFF0E7490)
+    val topBarDark  = Color(0xFF4F378B)
     val headerColor = if (isDark) topBarDark else topBarLight
     val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
 
@@ -702,12 +618,8 @@ private fun DeleteConfirmationDialog(
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
 
-                // هدر تمام‌عرض هم‌رنگ اپ‌بار (عنوان وسط‌چین)
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .background(headerColor),
+                    modifier = Modifier.fillMaxWidth().height(56.dp).background(headerColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -717,41 +629,27 @@ private fun DeleteConfirmationDialog(
                     )
                 }
 
-                // متن دیالوگ
                 Text(
                     text = "آیا از حذف این یادداشت مطمئن هستید؟",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Right,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)
                 )
 
-                // اکشن‌ها با فاصله بیشتر از لبه‌ها
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+                        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
                     ) {
-                        // انصراف: هم‌رنگ هدر
                         Button(
                             onClick = onDismiss,
                             modifier = Modifier.align(Alignment.CenterStart),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = headerColor,
-                                contentColor = headerTextColor
-                            )
+                            colors = ButtonDefaults.buttonColors(containerColor = headerColor, contentColor = headerTextColor)
                         ) { Text("انصراف") }
 
-                        // حذف: قرمز
                         Button(
                             onClick = onConfirm,
                             modifier = Modifier.align(Alignment.CenterEnd),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            )
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
                         ) { Text("حذف") }
                     }
                 }
@@ -759,7 +657,7 @@ private fun DeleteConfirmationDialog(
         }
     }
 }
-@Suppress("unused")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PersianTimePickerDialog(
@@ -774,157 +672,83 @@ private fun PersianTimePickerDialog(
     val headerColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
     val headerTextColor = if (isDark) Color(0xFFEADDFF) else Color.White
 
-    // مقداردهی اولیه
-    var hour by remember {
-        mutableIntStateOf(
-            if (is24Hour) initialHour
-            else when (initialHour) {
-                0 -> 12
-                in 1..12 -> initialHour
-                else -> initialHour - 12
-            }
-        )
-    }
+    var hour by remember { mutableIntStateOf(if (is24Hour) initialHour else ((initialHour - 1).let { if (it < 0) 11 else it } % 12) + 1) }
     var minute by remember { mutableIntStateOf(initialMinute.coerceIn(0, 59)) }
     var isPm by remember { mutableStateOf(!is24Hour && initialHour >= 12) }
 
-    // نمایش دیجیتال بالای دیالوگ (فارسی)
     val headerText = remember(hour, minute, is24Hour, isPm, usePersianNumbers) {
         val h24 = if (is24Hour) hour else {
             when {
                 isPm && hour in 1..11 -> hour + 12
                 !isPm && hour == 12 -> 0
-                else -> if (hour == 12) 12 else hour
+                else -> hour
             }
         }
-        DateUtils.formatDisplayTime(
-            String.format(Locale.US, "%02d:%02d", h24, minute),
-            is24Hour,
-            usePersianNumbers
-        )
+        DateUtils.formatDisplayTime(String.format(Locale.US, "%02d:%02d", h24, minute), is24Hour, usePersianNumbers)
     }
 
     BasicAlertDialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(16.dp),
             tonalElevation = 6.dp,
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
 
-                // هدر
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .background(headerColor),
+                    modifier = Modifier.fillMaxWidth().height(56.dp).background(headerColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "انتخاب ساعت",
-                        color = headerTextColor,
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                    Text("انتخاب ساعت", color = headerTextColor, style = MaterialTheme.typography.titleLarge)
                 }
 
-                // زمان دیجیتال
                 Text(
                     text = headerText,
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)
                 )
 
-                // Wheel Pickers
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // ساعت
-                    WheelNumberPicker(
-                        value = hour,
-                        range = if (is24Hour) 0..23 else 1..12,
-                        onValueChange = { hour = it },
-                        twoDigits = is24Hour, // در 24ساعته ساعت دو رقمی
-                        usePersianNumbers = usePersianNumbers,
-                        modifier = Modifier.weight(1f)
-                    )
-                    // دقیقه
-                    WheelNumberPicker(
-                        value = minute,
-                        range = 0..59,
-                        onValueChange = { minute = it },
-                        twoDigits = true,
-                        usePersianNumbers = usePersianNumbers,
-                        modifier = Modifier.weight(1f)
-                    )
+                    WheelNumberPicker(value = hour, range = if (is24Hour) 0..23 else 1..12, onValueChange = { hour = it }, twoDigits = is24Hour, usePersianNumbers = usePersianNumbers, modifier = Modifier.weight(1f))
+                    WheelNumberPicker(value = minute, range = 0..59, onValueChange = { minute = it }, twoDigits = true, usePersianNumbers = usePersianNumbers, modifier = Modifier.weight(1f))
                 }
 
-                // AM/PM (فقط ۱۲ساعته)
                 if (!is24Hour) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        FilterChip(
-                            selected = !isPm,
-                            onClick = { isPm = false },
-                            label = { Text("ق.ظ") }
-                        )
-                        FilterChip(
-                            selected = isPm,
-                            onClick = { isPm = true },
-                            label = { Text("ب.ظ") }
-                        )
+                        FilterChip(selected = !isPm, onClick = { isPm = false }, label = { Text("ق.ظ") })
+                        FilterChip(selected = isPm, onClick = { isPm = true }, label = { Text("ب.ظ") })
                     }
                     Spacer(Modifier.height(4.dp))
                 }
 
-                // اکشن‌ها: انصراف = قرمز، تایید = هم‌رنگ هدر
-                androidx.compose.runtime.CompositionLocalProvider(
-                    LocalLayoutDirection provides LayoutDirection.Ltr
-                ) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+                        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
                     ) {
-                        // انصراف (قرمز)
-                        Button(
-                            onClick = onDismiss,
-                            modifier = Modifier.align(Alignment.CenterStart),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            )
-                        ) { Text("انصراف") }
-
-                        // تایید (هم‌رنگ هدر)
+                        Button(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterStart), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)) { Text("انصراف") }
                         Button(
                             onClick = {
                                 val finalHour = if (is24Hour) hour else {
                                     when {
                                         isPm && hour in 1..11 -> hour + 12
                                         !isPm && hour == 12 -> 0
-                                        else -> if (hour == 12) 12 else hour
+                                        else -> hour
                                     }
                                 }
                                 onConfirm(finalHour, minute)
                             },
                             modifier = Modifier.align(Alignment.CenterEnd),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = headerColor,
-                                contentColor = headerTextColor
-                            )
+                            colors = ButtonDefaults.buttonColors(containerColor = headerColor, contentColor = headerTextColor)
                         ) { Text("تایید") }
                     }
                 }
@@ -932,7 +756,7 @@ private fun PersianTimePickerDialog(
         }
     }
 }
-@Suppress("unused")
+
 @Composable
 private fun WheelNumberPicker(
     value: Int,
@@ -953,14 +777,12 @@ private fun WheelNumberPicker(
 
     val state = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
 
-    // به نزدیک‌ترین آیتم اسنپ کن وقتی اسکرول متوقف شد
     LaunchedEffect(state) {
         snapshotFlow { state.isScrollInProgress }.collect { inProgress ->
             if (!inProgress) {
                 val first = state.firstVisibleItemIndex
                 val offset = state.firstVisibleItemScrollOffset
                 val centerIndexApprox = first + half + if (offset >= itemHeightPx / 2) 1 else 0
-                // نزدیک‌ترین اندیس معتبر (نه null)
                 var center = centerIndexApprox
                 while (center < decorated.size && decorated[center] == null) center++
                 if (center >= decorated.size) {
@@ -973,20 +795,16 @@ private fun WheelNumberPicker(
         }
     }
 
-    // به‌روزرسانی مقدار انتخاب‌شده هنگام اسکرول
     LaunchedEffect(state) {
-        snapshotFlow { Pair(state.firstVisibleItemIndex, state.firstVisibleItemScrollOffset) }
-            .collect {
-                val first = state.firstVisibleItemIndex
-                val offset = state.firstVisibleItemScrollOffset
-                val centerIndex = (first + half + if (offset >= itemHeightPx / 2) 1 else 0)
-                    .coerceIn(0, decorated.lastIndex)
-                val sel = decorated[centerIndex]
-                if (sel != null && sel != value) onValueChange(sel)
-            }
+        snapshotFlow { Pair(state.firstVisibleItemIndex, state.firstVisibleItemScrollOffset) }.collect {
+            val first = state.firstVisibleItemIndex
+            val offset = state.firstVisibleItemScrollOffset
+            val centerIndex = (first + half + if (offset >= itemHeightPx / 2) 1 else 0).coerceIn(0, decorated.lastIndex)
+            val sel = decorated[centerIndex]
+            if (sel != null && sel != value) onValueChange(sel)
+        }
     }
 
-    // هایلایت سطر مرکزی با ضخیم‌تر کردن فونت
     val boxHeight = itemHeight * visibleCount
 
     Box(modifier = modifier.height(boxHeight)) {
@@ -999,53 +817,25 @@ private fun WheelNumberPicker(
             items(decorated.size) { idx ->
                 val v = decorated[idx]
                 val isSelected = v != null && v == value
-                Box(
-                    modifier = Modifier
-                        .height(itemHeight)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.height(itemHeight).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     if (v != null) {
-                        val raw = if (twoDigits)
-                            String.format(Locale.US, "%02d", v)
-                        else v.toString()
-                        val txt = DateUtils.convertToPersianNumbers(raw, enabled = usePersianNumbers)
+                        val raw = if (twoDigits) String.format(Locale.US, "%02d", v) else v.toString()
+                        val txt = DateUtils.convertToPersianNumbers(raw, usePersianNumbers)
                         Text(
                             text = txt,
-                            style = if (isSelected)
-                                MaterialTheme.typography.headlineMedium
-                            else
-                                MaterialTheme.typography.titleLarge,
-                            color = if (isSelected)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                            style = if (isSelected) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
         }
-        // خطوط نازک برای نمایش ناحیه انتخاب (اختیاری)
         val lineColor = MaterialTheme.colorScheme.outlineVariant
-        HorizontalDivider(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(y = -(itemHeight / 2))
-                .fillMaxWidth(0.9f),
-            thickness = 1.dp,
-            color = lineColor
-        )
-        HorizontalDivider(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(y = itemHeight / 2)
-                .fillMaxWidth(0.9f),
-            thickness = 1.dp,
-            color = lineColor
-        )
+        HorizontalDivider(modifier = Modifier.align(Alignment.Center).offset(y = -(itemHeight / 2)).fillMaxWidth(0.9f), thickness = 1.dp, color = lineColor)
+        HorizontalDivider(modifier = Modifier.align(Alignment.Center).offset(y = itemHeight / 2).fillMaxWidth(0.9f), thickness = 1.dp, color = lineColor)
     }
 }
-@Suppress("unused")
+
 @Composable
 private fun TimeStepper(
     label: String,
@@ -1056,44 +846,19 @@ private fun TimeStepper(
     usePersianNumbers: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // دکمه افزایش
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         FilledTonalIconButton(onClick = onIncrement) {
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowUp,
-                contentDescription = "افزایش"
-            )
+            Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "افزایش")
         }
 
-        // عدد بزرگ (کاملاً فارسی)
         val raw = if (twoDigits) String.format(Locale.US, "%02d", value) else value.toString()
-        val txt = DateUtils.convertToPersianNumbers(raw, enabled = usePersianNumbers)
-        Text(
-            text = txt,
-            style = MaterialTheme.typography.displaySmall,
-            modifier = Modifier.padding(vertical = 8.dp),
-            textAlign = TextAlign.Center
-        )
+        val txt = DateUtils.convertToPersianNumbers(raw, usePersianNumbers)
+        Text(text = txt, style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(vertical = 8.dp), textAlign = TextAlign.Center)
 
-        // دکمه کاهش
         FilledTonalIconButton(onClick = onDecrement) {
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = "کاهش"
-            )
+            Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "کاهش")
         }
 
-        // برچسب
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(top = 4.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(text = label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-
-

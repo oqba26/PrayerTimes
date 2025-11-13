@@ -457,7 +457,9 @@ fun CalendarScreenEntryPoint(
                     context,
                     selectedDateShamsi.replace('/', '-'),
                     null,
-                    isDarkThemeActive
+                    isDarkThemeActive,
+                    usePersianNumbers,
+                    use24HourFormat
                 )
             )
         },
@@ -467,7 +469,9 @@ fun CalendarScreenEntryPoint(
                     context,
                     noteToEdit.id,
                     noteToEdit,
-                    isDarkThemeActive
+                    isDarkThemeActive,
+                    usePersianNumbers,
+                    use24HourFormat
                 )
             )
         },
@@ -712,7 +716,7 @@ private fun buildRelativeDiffLabel(
 
     val num: (Int) -> String = { n ->
         val s = n.toString()
-        if (usePersianNumbers) DateUtils.convertToPersianNumbers(s) else s
+        DateUtils.convertToPersianNumbers(s, usePersianNumbers)
     }
 
     val nNBSP = ' '

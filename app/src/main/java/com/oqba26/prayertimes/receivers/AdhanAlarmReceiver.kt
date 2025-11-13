@@ -24,9 +24,9 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "AdhanAlarmReceiver"
-        private const val MIN_REPLAY_GAP_MS = 8 * 60 * 1000L       // حداقل فاصله برای جلوگیری از تکرار
-        private const val MAX_DRIFT_MS = 15 * 60 * 1000L           // تلرانس نسبت به زمان آلارم تنظیم‌شده
-        private const val MAX_DIFF_FROM_REAL_MS = 20 * 60 * 1000L  // تلرانس نسبت به زمان واقعی نماز
+        private const val MIN_REPLAY_GAP_MS = 8 * 60 * 1000L       // At least this long to avoid replays
+        private const val MAX_DRIFT_MS = 15 * 60 * 1000L           // Tolerance relative to scheduled alarm time
+        private const val MAX_DIFF_FROM_REAL_MS = 35 * 60 * 1000L  // Tolerance relative to actual prayer time
 
         private val fmt24 = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
 
@@ -82,18 +82,17 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             return null
         }
 
-        // نسخه بلاکینگ امن برای BroadcastReceiver: فراخوانی suspend داخل runBlocking + Dispatchers.IO
         private fun expectedTriggerForTodayMs(context: Context, prayerId: String): Long? = runBlocking {
             val today = DateUtils.getCurrentDate()
             val map = withContext(Dispatchers.IO) {
-                PrayerUtils.loadPrayerTimes(context, today) // suspend
+                PrayerUtils.loadDetailedPrayerTimes(context, today) // suspend
             }
 
             val keyTime = when (prayerId) {
-                "fajr"    -> findTime(map, "طلوع بامداد", "اذان صبح", "صبح", "فجر")
+                "fajr"    -> findTime(map, "اذان صبح", "صبح", "فجر")
                 "dhuhr"   -> findTime(map, "ظهر", "dhuhr", "zuhr")
                 "asr"     -> findTime(map, "عصر", "asr")
-                "maghrib" -> findTime(map, "غروب", "مغرب", "maghrib")
+                "maghrib" -> findTime(map, "مغرب", "maghrib")
                 "isha"    -> findTime(map, "عشاء", "عشا", "isha")
                 else      -> null
             } ?: return@runBlocking null
@@ -106,53 +105,38 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
 
     @SuppressLint("UseKtx")
     override fun onReceive(context: Context, intent: Intent) {
-        val prayerId = intent.getStringExtra("PRAYER_ID") ?: "dhuhr"
-        val enableSilentMode = intent.getBooleanExtra("ENABLE_SILENT_MODE", false)
+        val prayerId = intent.getStringExtra(AdhanPlayerService.EXTRA_PRAYER_ID) ?: "dhuhr"
+        val adhanSound = intent.getStringExtra(AdhanPlayerService.EXTRA_ADHAN_SOUND)
 
-        if (enableSilentMode) {
-            val silentIntent = Intent(context, SilentModeReceiver::class.java).apply {
-                action = SilentModeReceiver.ACTION_SILENT
-            }
-            context.sendBroadcast(silentIntent)
-        }
-
-        // اگر کاربر پخش اذان را غیرفعال کرده:
-        val settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        if (!settings.getBoolean("adhan_enabled", true)) {
-            Log.d(TAG, "Adhan disabled. Skipping $prayerId")
+        if (adhanSound.isNullOrEmpty() || adhanSound == "off") {
+            Log.d(TAG, "Adhan sound is off or not specified for $prayerId. Skipping.")
             return
         }
 
         val guard = context.getSharedPreferences("adhan_guard", Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
 
-        // جلوگیری از تکرار پشت‌سرهم برای یک نماز
         val last = guard.getLong("last_$prayerId", 0L)
         if (now - last < MIN_REPLAY_GAP_MS) {
             Log.d(TAG, "Duplicate trigger for $prayerId (gap ${(now - last) / 1000}s). Ignored.")
             return
         }
 
-        // اگر Intent زمان برنامه‌ریزی‌شده را دارد، Drift را چک کن
         val scheduledAt = intent.getLongExtra("TRIGGER_AT", -1L)
         if (scheduledAt > 0 && abs(now - scheduledAt) > MAX_DRIFT_MS) {
             Log.w(TAG, "Trigger drift too large for $prayerId: diff=${abs(now - scheduledAt) / 1000}s. Ignored.")
             return
         }
 
-        // اگر TRIGGER_AT نداریم، با زمان واقعی امروز بسنج (با runBlocking)
-        if (scheduledAt <= 0) {
-            val expected = expectedTriggerForTodayMs(context, prayerId)
-            if (expected != null && abs(now - expected) > MAX_DIFF_FROM_REAL_MS) {
-                Log.w(TAG, "Out-of-window trigger for $prayerId (diff=${abs(now - expected) / 1000}s). Ignored.")
-                return
-            }
+        val expectedPrayerTime = expectedTriggerForTodayMs(context, prayerId)
+        if (expectedPrayerTime != null && abs(now - expectedPrayerTime) > MAX_DIFF_FROM_REAL_MS) {
+            Log.w(TAG, "Out-of-window trigger for $prayerId. Now: $now, Expected: $expectedPrayerTime, Diff: ${abs(now - expectedPrayerTime) / 1000}s. Ignored.")
+            return
         }
 
-        // همه‌چیز اوکی: ثبت آخرین اجرا و پخش
         guard.edit().putLong("last_$prayerId", now).apply()
         Toast.makeText(context, "اذان: $prayerId", Toast.LENGTH_SHORT).show()
-        Log.d(TAG, "onReceive: prayerId=$prayerId -> playing")
-        AdhanPlayerService.playNow(context.applicationContext, prayerId)
+        Log.d(TAG, "onReceive: prayerId=$prayerId, sound=$adhanSound -> playing")
+        AdhanPlayerService.playNow(context.applicationContext, prayerId, adhanSound)
     }
 }
