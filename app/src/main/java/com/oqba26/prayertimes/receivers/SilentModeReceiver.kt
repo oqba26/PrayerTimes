@@ -1,7 +1,6 @@
 package com.oqba26.prayertimes.receivers
 
 import android.annotation.SuppressLint
-import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
