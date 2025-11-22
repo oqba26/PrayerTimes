@@ -1,3 +1,5 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.oqba26.prayertimes.screens
 
 import android.annotation.SuppressLint
@@ -72,6 +74,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.oqba26.prayertimes.R
 import com.oqba26.prayertimes.ui.AppFonts
 import com.oqba26.prayertimes.utils.DateUtils
 import com.oqba26.prayertimes.viewmodels.SettingsViewModel
@@ -489,7 +493,7 @@ fun SettingsScreen(
     }
 
     var generalExpanded by remember { mutableStateOf(false) }
-    var displayExpanded by remember { mutableStateOf(true) }
+    var displayExpanded by remember { mutableStateOf(false) }
     var adhanExpanded by remember { mutableStateOf(false) }
     var silentExpanded by remember { mutableStateOf(false) }
     var iqamaExpanded by remember { mutableStateOf(false) }
@@ -571,8 +575,10 @@ fun SettingsScreen(
                     expanded = adhanExpanded,
                     onToggle = { adhanExpanded = !adhanExpanded }
                 ) {
-                    val adhanSounds = remember {
-                        listOf("off" to "خاموش", "makkah" to "اذان مکه", "madina" to "اذان مدینه", "abdulbasit" to "اذان عبدالباسط")
+                    val adhanLabels = stringArrayResource(R.array.adhan_sound_labels)
+                    val adhanIds = stringArrayResource(R.array.adhan_sound_ids)
+                    val adhanSounds = remember(adhanLabels, adhanIds) {
+                        adhanIds.zip(adhanLabels).toList()
                     }
                     Text(
                         "برای هر نماز، صدای اذان مورد نظر را انتخاب کنید. با انتخاب هر صدا، زمان اذان به صورت خودکار زمان‌بندی می‌شود.",

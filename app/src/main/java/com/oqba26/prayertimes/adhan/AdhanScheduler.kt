@@ -63,6 +63,7 @@ object AdhanScheduler {
      * prayersMap must contain the key/title and time value of each prayer.
      * We support both Farsi and English (by guessing the titles).
      */
+    @Suppress("unused")
     @RequiresApi(Build.VERSION_CODES.M)
     fun scheduleFromPrayerMap(context: Context, prayersMap: Map<String, String>) {
         cancelAll(context)
@@ -97,11 +98,11 @@ object AdhanScheduler {
 
         val detailedPrayers = runBlocking { PrayerUtils.loadDetailedPrayerTimes(context, DateUtils.getCurrentDate()) }
 
-        val fajr = findTime(prayersMap, "fajr", "اذان صبح", "صبح", "فجر", "طلوع بامداد")
-        val dhuhr = findTime(prayersMap, "dhuhr", "zuhr", "ظهر")
-        val asr = findTime(prayersMap, "asr", "عصر")
-        val maghrib = findTime(prayersMap, "maghrib", "مغرب", "غروب")
-        val isha = findTime(prayersMap, "isha", "عشا", "عشاء")
+        val fajr = findTime(detailedPrayers, "fajr", "اذان صبح", "صبح")
+        val dhuhr = findTime(detailedPrayers, "dhuhr", "zuhr", "ظهر")
+        val asr = findTime(detailedPrayers, "asr", "عصر")
+        val maghrib = findTime(detailedPrayers, "maghrib", "مغرب")
+        val isha = findTime(detailedPrayers, "isha", "عشا", "عشاء")
 
         fajr?.let { scheduleExact(context, REQ_FAJR, "fajr", it, settings.fajrAdhanSound, settings.fajrSilent, settings.fajrMinutesBefore, settings.fajrMinutesAfter) }
         dhuhr?.let { scheduleExact(context, REQ_DHUHR, "dhuhr", it, settings.dhuhrAdhanSound, settings.dhuhrSilent, settings.dhuhrMinutesBefore, settings.dhuhrMinutesAfter) }
@@ -214,7 +215,13 @@ object AdhanScheduler {
     }
 
     @SuppressLint("ScheduleExactAlarm")
-    private fun scheduleSilent(context: Context, prayerId: String, timeStr: String, minutesBefore: Int, minutesAfter: Int) {
+    private fun scheduleSilent(
+        context: Context,
+        prayerId: String,
+        timeStr: String,
+        minutesBefore: Int,
+        minutesAfter: Int
+    ) {
         val prayerTime = parseTimeFlexible(timeStr)
         val startTime = prayerTime.minusMinutes(minutesBefore.toLong())
         val endTime = prayerTime.plusMinutes(minutesAfter.toLong())
@@ -224,20 +231,29 @@ object AdhanScheduler {
 
         val startIntent = Intent(context, SilentModeReceiver::class.java).apply {
             action = SilentModeReceiver.ACTION_SILENT
+            putExtra("PRAYER_ID", prayerId)
         }
-        val endIntent = Intent(context, SilentModeReceiver::class.java).apply { action = SilentModeReceiver.ACTION_UNSILENT }
+        val endIntent = Intent(context, SilentModeReceiver::class.java).apply {
+            action = SilentModeReceiver.ACTION_UNSILENT
+            putExtra("PRAYER_ID", prayerId)
+        }
 
         val startReqCode = getSilentReqCode(prayerId, true)
         val endReqCode = getSilentReqCode(prayerId, false)
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        val startPi = PendingIntent.getBroadcast(context, startReqCode, startIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val endPi = PendingIntent.getBroadcast(context, endReqCode, endIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        val am = context.getSystemService<AlarmManager>()!!
+        val startPi = PendingIntent.getBroadcast(
+            context, startReqCode, startIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val endPi = PendingIntent.getBroadcast(
+            context, endReqCode, endIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
-                android.util.Log.w("AdhanScheduler", "Missing SCHEDULE_EXACT_ALARM permission for Silent Mode")
+                android.util.Log.w("AdhanScheduler", "⛔ اجازه SCHEDULE_EXACT_ALARM موجود نیست؛ سکوت برنامه‌ریزی نشد.")
                 return
             }
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startTrigger, startPi)
@@ -246,7 +262,7 @@ object AdhanScheduler {
 
         android.util.Log.d(
             "AdhanScheduler",
-            "Scheduled Silent Mode for $prayerId from ${java.util.Date(startTrigger)} to ${java.util.Date(endTrigger)}"
+            "📱 سکوت (ویبره) برنامه‌ریزی شد برای $prayerId از ${java.util.Date(startTrigger)} تا ${java.util.Date(endTrigger)}"
         )
     }
 

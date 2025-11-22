@@ -1,4 +1,4 @@
-@file:Suppress("UnusedVariable")
+@file:Suppress("UnusedVariable", "AssignedValueIsNeverRead")
 
 package com.oqba26.prayertimes.screens.widgets
 
@@ -658,6 +658,7 @@ private fun DeleteConfirmationDialog(
     }
 }
 
+@Suppress("unused")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PersianTimePickerDialog(
@@ -836,6 +837,7 @@ private fun WheelNumberPicker(
     }
 }
 
+@Suppress("unused")
 @Composable
 private fun TimeStepper(
     label: String,

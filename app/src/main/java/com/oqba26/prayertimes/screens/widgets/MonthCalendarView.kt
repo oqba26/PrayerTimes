@@ -1,3 +1,5 @@
+@file:Suppress("unused", "UnusedVariable")
+
 package com.oqba26.prayertimes.screens.widgets
 
 import androidx.compose.foundation.background

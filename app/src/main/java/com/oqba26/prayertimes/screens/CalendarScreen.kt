@@ -1,3 +1,5 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.oqba26.prayertimes.screens
 
 import android.app.Activity
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -69,12 +72,13 @@ import com.oqba26.prayertimes.utils.NoteUtils
 import com.oqba26.prayertimes.viewmodels.PrayerViewModel
 import java.time.LocalDate
 import java.time.Period
-
+import java.time.LocalTime
 
 val DarkThemePurpleBackground = Color(0xFF4F378B)
 val DarkThemeOnPurpleText = Color(0xFFEADDFF)
 
 enum class ViewMode { PRAYER_TIMES, NOTES }
+
 
 
 
@@ -98,6 +102,15 @@ fun CalendarScreen(
     use24HourFormat: Boolean
 ) {
     val context = LocalContext.current
+
+    // اضافه کردن این خط برای به‌روز کردن صفحه هر دقیقه
+    val currentTime = remember { mutableStateOf(LocalTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(60_000) // 60 ثانیه
+            currentTime.value = LocalTime.now()
+        }
+    }
 
     val today = remember { DateUtils.getCurrentDate() }
     val diffLabel = remember(currentDate.shamsi, today.shamsi, usePersianNumbers) {
@@ -150,19 +163,51 @@ fun CalendarScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = {
-                        if (currentDate.shamsi != today.shamsi) onDateChange(today) else showShamsiDatePicker = true
-                    }) {
-                        Icon(
-                            imageVector = Icons.Filled.CalendarToday,
-                            contentDescription = "تقویم",
-                            tint = topColor
-                        )
+                    // آیکون تقویم + اشتراک‌گذاری در سمت چپ
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = {
+                            if (currentDate.shamsi != today.shamsi) onDateChange(today) else showShamsiDatePicker = true
+                        }) {
+                            Icon(
+                                imageVector = Icons.Filled.CalendarToday,
+                                contentDescription = "انتخاب تاریخ",
+                                tint = topColor
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                if (uiState is PrayerViewModel.Result.Success) {
+                                    val textToShare = com.oqba26.prayertimes.utils.ShareUtils.buildShareText(
+                                        currentDate,
+                                        uiState.data,
+                                        usePersianNumbers,
+                                        use24HourFormat
+                                    )
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, textToShare)
+                                    }
+                                    context.startActivity(
+                                        Intent.createChooser(shareIntent, "اشتراک گذاری با")
+                                    )
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription = "اشتراک‌گذاری",
+                                tint = topColor
+                            )
+                        }
                     }
+
+                    // عنوان در سمت راست
                     Text(
                         text = "تقویم و اوقات نماز",
                         color = topColor,
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.End
                     )
                 }
 
@@ -233,7 +278,8 @@ fun CalendarScreen(
                                 isDark = isDarkThemeActive,
                                 usePersianNumbers = usePersianNumbers,
                                 use24HourFormat = use24HourFormat,
-                                contentPadding = innerPadding
+                                contentPadding = innerPadding,
+                                currentTime = currentTime.value
                             )
                         }
                     }

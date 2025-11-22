@@ -11,7 +11,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -35,6 +39,7 @@ import com.oqba26.prayertimes.widget.ModernWidgetProvider
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import java.util.*
+import androidx.core.graphics.createBitmap
 
 class PrayerForegroundService : Service() {
 
@@ -81,24 +86,40 @@ class PrayerForegroundService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + job)
     private val timeTickReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_TIME_TICK) {
-                updateWidget(context, ModernWidgetProvider::class.java)
-                updateWidget(context, LargeModernWidgetProvider::class.java)
-                // Send update command to the service itself
+            val action = intent.action ?: return
+
+            if (action == Intent.ACTION_TIME_TICK || action == Intent.ACTION_DATE_CHANGED) {
+
+                // اگر تاریخ عوض شده، همین اکشن را به ویجت بفرست تا selectedDate را ریست کند
+                val widgetAction = if (action == Intent.ACTION_DATE_CHANGED) {
+                    Intent.ACTION_DATE_CHANGED
+                } else {
+                    AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                }
+
+                updateWidget(context, ModernWidgetProvider::class.java, widgetAction)
+                updateWidget(context, LargeModernWidgetProvider::class.java, widgetAction)
+
+                // آپدیت نوتیفیکیشن سرویس
+                if (action == Intent.ACTION_DATE_CHANGED) {
+                    // اول تاریخ انتخاب‌شده را روی امروز بگذار
+                    notifSelectedDate = DateUtils.getCurrentDate()
+                }
+
                 val updateIntent = Intent(context, PrayerForegroundService::class.java).apply {
-                    action = ACTION_UPDATE
+                    this.action = ACTION_UPDATE
                 }
                 context.startService(updateIntent)
             }
         }
 
-        private fun updateWidget(context: Context, widgetClass: Class<*>) {
+        private fun updateWidget(context: Context, widgetClass: Class<*>, action: String) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = ComponentName(context, widgetClass)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
                 val updateIntent = Intent(context, widgetClass).apply {
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    this.action = action
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
                 }
                 context.sendBroadcast(updateIntent)
@@ -112,7 +133,12 @@ class PrayerForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         isRunning = true
-        registerReceiver(timeTickReceiver, IntentFilter(Intent.ACTION_TIME_TICK))
+        clearIconCache() // پاک کردن کش آیکون هنگام ایجاد سرویس
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_DATE_CHANGED) // <<< خط اضافه شده
+        }
+        registerReceiver(timeTickReceiver, filter)
     }
 
     override fun onDestroy() {
@@ -120,6 +146,7 @@ class PrayerForegroundService : Service() {
         job.cancel()
         isRunning = false
         notifSelectedDate = null
+        clearIconCache() // پاک کردن کش آیکون هنگام تخریب سرویس
         unregisterReceiver(timeTickReceiver)
     }
 
@@ -227,24 +254,31 @@ class PrayerForegroundService : Service() {
     }
 
     private fun createPrayerTimesBitmap(times: Map<String, String>, current: String?, baseColor: Int, highlightColor: Int, tf: Typeface, usePersian: Boolean, use24h: Boolean): Bitmap {
-        val order = listOf("عشاء", "مغرب", "عصر", "ظهر", "صبح")
+        val prayerOrder = listOf(
+        "نماز عشاء" to "عشاء",
+        "نماز مغرب" to "مغرب",
+        "نماز عصر" to "عصر",
+        "نماز ظهر" to "ظهر",
+        "نماز صبح" to "صبح"
+    )
         val w = dp(this, 320)
         val h = dp(this, 60)
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val bmp = createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = tf
             textAlign = Paint.Align.CENTER
             textSize = sp(14f)
         }
-        val colW = w / order.size
+        val colW = w / prayerOrder.size
         val offset = (p.descent() - p.ascent()) / 2 - p.descent()
-        order.forEachIndexed { i, name ->
-            val t = DateUtils.formatDisplayTime(times[name] ?: "--:--", use24h, usePersian)
-            p.color = if (name == current) highlightColor else baseColor
-            p.isFakeBoldText = name == current
+        prayerOrder.forEachIndexed { i, (displayName, internalName) ->
+            val t = DateUtils.formatDisplayTime(times[internalName] ?: "--:--", use24h, usePersian)
+            val isCurrent = displayName == "نماز $current"
+            p.color = if (isCurrent) highlightColor else baseColor
+            p.isFakeBoldText = isCurrent
             val x = (i * colW) + (colW / 2f)
-            c.drawText(name, x, h / 2f - (h / 4f) + offset, p)
+            c.drawText(displayName, x, h / 2f - (h / 4f) + offset, p)
             c.drawText(t, x, h / 2f + (h / 4f) + offset, p)
         }
         return bmp
@@ -322,7 +356,7 @@ class PrayerForegroundService : Service() {
 
         val iconDay = date.getShamsiParts().third
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            builder.setSmallIcon(getDaySmallIconCached(iconDay, dark, usePersian))
+            builder.setSmallIcon(getDaySmallIconCached(iconDay, dark, usePersian, tf))
         } else {
             builder.setSmallIcon(R.drawable.ic_notification_icon)
         }
@@ -332,30 +366,29 @@ class PrayerForegroundService : Service() {
 
     private var cachedIconDay = -1
     private var cachedIconColor = Color.BLACK
+    private var cachedIconTf: Typeface? = null
     private var cachedSmallIcon: IconCompat? = null
 
+    // تابع برای پاک کردن کش آیکون
+    private fun clearIconCache() {
+        cachedIconDay = -1
+        cachedIconColor = Color.BLACK
+        cachedIconTf = null
+        cachedSmallIcon = null
+    }
+
     @RequiresApi(Build.VERSION_CODES.M)
-    private fun getDaySmallIconCached(day: Int, isDark: Boolean, usePersian: Boolean): IconCompat {
+    private fun getDaySmallIconCached(day: Int, isDark: Boolean, usePersian: Boolean, tf: Typeface): IconCompat {
         val color = if (isDark) Color.WHITE else Color.BLACK
-        if (cachedIconDay == day && cachedIconColor == color && cachedSmallIcon != null) {
+        if (cachedIconDay == day && cachedIconColor == color && cachedIconTf == tf && cachedSmallIcon != null) {
             return cachedSmallIcon!!
         }
 
-        val text = DateUtils.convertToPersianNumbers(day.toString(), usePersian)
-        val tf = font("sans-serif-medium")
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            typeface = tf
-            textAlign = Paint.Align.CENTER
-            textSize = sp(18f)
-        }
-        val size = dp(this, 24)
-        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        canvas.drawText(text, size / 2f, size / 2f - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f, paint)
+        val bmp = createDayIconBitmap(this, day, color, usePersian, tf)
 
         cachedIconDay = day
         cachedIconColor = color
+        cachedIconTf = tf
         cachedSmallIcon = IconCompat.createWithBitmap(bmp)
         return cachedSmallIcon!!
     }

@@ -82,8 +82,14 @@ open class ModernWidgetProvider : AppWidgetProvider() {
             try {
                 when (intent.action) {
                     Intent.ACTION_TIME_TICK,
+                    Intent.ACTION_DATE_CHANGED,
                     AppWidgetManager.ACTION_APPWIDGET_UPDATE -> {
                         for (appWidgetId in appWidgetIds) {
+                            // اگر روز تغییر کرده باشد، تاریخ انتخاب شده ویجت را به امروز بازنشانی می‌کنیم
+                            if (intent.action == Intent.ACTION_DATE_CHANGED) {
+                                val newDate = DateUtils.getCurrentDate()
+                                setSelectedDate(context, appWidgetId, newDate)
+                            }
                             updateOneWidget(context, mgr, appWidgetId)
                         }
                     }

@@ -1,21 +1,13 @@
 package com.oqba26.prayertimes.screens.widgets
 
-import android.content.Intent
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.EditNote
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -23,14 +15,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.oqba26.prayertimes.R
@@ -38,8 +24,8 @@ import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.screens.DarkThemeOnPurpleText
 import com.oqba26.prayertimes.screens.DarkThemePurpleBackground
 import com.oqba26.prayertimes.screens.ViewMode
-import com.oqba26.prayertimes.utils.ShareUtils
 
+@Suppress("unused")
 @Composable
 fun BottomBar(
     currentDate: MultiDate,
@@ -53,9 +39,6 @@ fun BottomBar(
     usePersianNumbers: Boolean,
     use24HourFormat: Boolean
 ) {
-    val context = LocalContext.current
-    var showMoreMenu by remember { mutableStateOf(false) }
-
     val containerColor: Color
     val selectedColor: Color
     val unselectedColor: Color
@@ -73,12 +56,14 @@ fun BottomBar(
         indicatorColor = MaterialTheme.colorScheme.inversePrimary
     }
 
-    // You can change the height of the bottom bar from here
+    // کمی کوتاه‌تر از قبل، تا جا برای ۵ آیکن باشد
     NavigationBar(
-        modifier = Modifier.height(110.dp),
+        modifier = Modifier
+            .height(110.dp)          // مثل قبل
+            .navigationBarsPadding(), // تا زیر نوار ناوبری اندروید نره
         containerColor = containerColor
     ) {
-        // Prayer Times
+        // اوقات نماز
         NavigationBarItem(
             icon = {
                 Icon(
@@ -98,7 +83,7 @@ fun BottomBar(
             colors = NavigationBarItemDefaults.colors(indicatorColor = indicatorColor)
         )
 
-        // Notes
+        // یادداشت‌ها
         NavigationBarItem(
             icon = {
                 Icon(
@@ -118,7 +103,7 @@ fun BottomBar(
             colors = NavigationBarItemDefaults.colors(indicatorColor = indicatorColor)
         )
 
-        // Alarms
+        // آلارم‌ها
         NavigationBarItem(
             icon = {
                 Icon(
@@ -138,65 +123,44 @@ fun BottomBar(
             colors = NavigationBarItemDefaults.colors(indicatorColor = indicatorColor)
         )
 
-        // More menu
-        Box(
-            Modifier
-                .weight(1f)
-                //.fillMaxHeight()
-                .clickable { showMoreMenu = true },
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                val moreColor = if (showMoreMenu) selectedColor else unselectedColor
+        // تنظیمات
+        NavigationBarItem(
+            icon = {
                 Icon(
-                    Icons.Default.MoreVert,
-                    contentDescription = stringResource(id = R.string.more),
-                    tint = moreColor
+                    Icons.Default.Settings,
+                    contentDescription = "تنظیمات",
+                    tint = unselectedColor
                 )
+            },
+            label = {
                 Text(
-                    text = stringResource(id = R.string.more),
-                    color = moreColor,
-                    style = MaterialTheme.typography.labelSmall
+                    "تنظیمات",
+                    color = unselectedColor
                 )
-            }
+            },
+            selected = false,
+            onClick = onOpenSettings,
+            colors = NavigationBarItemDefaults.colors(indicatorColor = indicatorColor)
+        )
 
-            DropdownMenu(
-                expanded = showMoreMenu,
-                onDismissRequest = { showMoreMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("تغییر تم") },
-                    onClick = {
-                        onToggleTheme()
-                        showMoreMenu = false
-                    },
-                    leadingIcon = { Icon(Icons.Default.BrightnessMedium, "تغییر تم") }
+        // تغییر تم
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    Icons.Default.BrightnessMedium,
+                    contentDescription = "تغییر تم",
+                    tint = unselectedColor
                 )
-                DropdownMenuItem(
-                    text = { Text("تنظیمات") },
-                    onClick = {
-                        onOpenSettings()
-                        showMoreMenu = false
-                    },
-                    leadingIcon = { Icon(Icons.Default.Settings, "تنظیمات") }
+            },
+            label = {
+                Text(
+                    "تم",
+                    color = unselectedColor
                 )
-                DropdownMenuItem(
-                    text = { Text("اشتراک گذاری") },
-                    onClick = {
-                        val text = ShareUtils.buildShareText(currentDate, prayers, usePersianNumbers, use24HourFormat)
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, text)
-                        }
-                        context.startActivity(Intent.createChooser(intent, "اشتراک گذاری با"))
-                        showMoreMenu = false
-                    },
-                    leadingIcon = { Icon(Icons.Default.Share, "اشتراک گذاری") }
-                )
-            }
-        }
+            },
+            selected = false,
+            onClick = onToggleTheme,
+            colors = NavigationBarItemDefaults.colors(indicatorColor = indicatorColor)
+        )
     }
 }

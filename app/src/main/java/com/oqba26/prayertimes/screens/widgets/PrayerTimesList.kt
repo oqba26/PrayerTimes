@@ -31,11 +31,32 @@ fun PrayerTimesList(
     isDark: Boolean,
     usePersianNumbers: Boolean,
     use24HourFormat: Boolean,
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    currentTime: LocalTime = LocalTime.now() // زمان فعلی (برای آپدیت دوره‌ای)
 ) {
     val order = remember { listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء") }
-    val now = LocalTime.now()
-    val currentPrayerName = remember(prayerTimes, now) { PrayerUtils.getCurrentPrayerForHighlight(prayerTimes, now) }
+
+    // هایلایت با چسبندگی ۳۰ دقیقه‌ای بعد از هر وقت
+    val currentPrayerName = remember(prayerTimes, currentTime) {
+        val stickMinutes = 30L
+
+        val parsedPrayerTimes = order.mapNotNull { name ->
+            val raw = prayerTimes[name] ?: return@mapNotNull null
+            PrayerUtils.parseTimeSafely(raw)?.let { time -> name to time }
+        }.sortedBy { it.second }
+
+        if (parsedPrayerTimes.isEmpty()) {
+            null
+        } else {
+            // اولین وقتی که now بعد از (time + 30 دقیقه) نشده باشد
+            val found = parsedPrayerTimes.firstOrNull { (_, prayerTime) ->
+                val end = prayerTime.plusMinutes(stickMinutes)
+                !currentTime.isAfter(end)
+            }
+            // اگر از همه‌ٔ وقت‌ها عبور کرده باشیم، برگرد اول لیست (طلوع بامداد فردا)
+            found?.first ?: parsedPrayerTimes.first().first
+        }
+    }
 
     Column(modifier = modifier) {
         Column(modifier = Modifier.weight(1f)) {
@@ -70,7 +91,7 @@ fun PrayerTimesList(
                         .weight(1f)
                         .fillMaxWidth()
                         .background(rowBackgroundColor)
-                        .padding(horizontal = 1.dp), // padding داخل Row برای فاصله از لبه‌ها
+                        .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(

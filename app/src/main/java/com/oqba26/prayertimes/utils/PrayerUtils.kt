@@ -145,17 +145,17 @@ object PrayerUtils {
      */
     fun getCurrentPrayerForHighlight(times: Map<String, String>, now: LocalTime): String? {
         val prayerOrder = listOf(
-            "صبح",
-            "ظهر",
-            "عصر",
-            "مغرب",
-            "عشاء"
-        )
+            "صبح" to "صبح",
+            "ظهر" to "ظهر",
+            "عصر" to "عصر",
+            "مغرب" to "مغرب",
+            "عشاء" to "عشاء"
+        ).reversed()
 
-        val parsedTimes = prayerOrder.mapNotNull { name ->
-            times[name]?.let { timeStr ->
+        val parsedTimes = prayerOrder.mapNotNull { (displayName, internalName) ->
+            times[internalName]?.let { timeStr ->
                 parseTimeSafely(timeStr)?.let { time ->
-                    name to time
+                    displayName to time
                 }
             }
         }.sortedBy { it.second }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="adhan_sound_labels">
+        <item>خاموش</item>
+        <item>اذان مکه</item>
+    </string-array>
+    <string-array name="adhan_sound_ids">
+        <item>off</item>
+        <item>makkah</item>
+    </string-array>
+</resources>

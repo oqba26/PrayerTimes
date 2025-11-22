@@ -49,6 +49,22 @@ fun textBitmap(
     return bmp
 }
 
+fun createDayIconBitmap(context: Context, day: Int, color: Int, usePersian: Boolean, tf: Typeface): Bitmap {
+    fun sp(v: Float): Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, v, context.resources.displayMetrics)
+    val text = DateUtils.convertToPersianNumbers(day.toString(), usePersian)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        typeface = Typeface.create(tf, Typeface.BOLD)
+        textAlign = Paint.Align.CENTER
+        textSize = sp(22f)
+    }
+    val size = dp(context, 32)
+    val bmp = createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+    canvas.drawText(text, size / 2f, size / 2f - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f, paint)
+    return bmp
+}
+
 fun createPrayerTimesBitmapWithHighlight(
     context: Context,
     prayerTimes: Map<String, String>,
