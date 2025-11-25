@@ -145,7 +145,9 @@ class PrayerForegroundService : Service() {
                 when (action) {
                     null -> updateNotification()
                     ACTION_START -> {
-                        PrayerAlarmManager.scheduleMidnightAlarm(this@PrayerForegroundService)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            PrayerAlarmManager.scheduleMidnightAlarm(this@PrayerForegroundService)
+                        }
                         updateNotification()
                     }
                     ACTION_STOP -> stopSelf()
@@ -176,7 +178,7 @@ class PrayerForegroundService : Service() {
             .build()
     }
 
-    private fun showErrorNotification(title: String, e: Exception) {
+    private fun showErrorNotification(@Suppress("SameParameterValue") title: String, e: Exception) {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val errorNotification = NotificationCompat.Builder(this, NotificationService.DAILY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_icon)
@@ -195,7 +197,9 @@ class PrayerForegroundService : Service() {
         // Send our custom, allowed action to widgets to notify them of the date change
         updateAllWidgets(ModernWidgetProvider.ACTION_DATE_CHANGED_BY_SERVICE)
         updateNotification()
-        PrayerAlarmManager.scheduleMidnightAlarm(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PrayerAlarmManager.scheduleMidnightAlarm(this)
+        }
         Log.d(TAG, "Midnight Update Finished.")
     }
 
@@ -243,10 +247,12 @@ class PrayerForegroundService : Service() {
 
     @SuppressLint("ScheduleExactAlarm")
     private suspend fun scheduleAlarms() {
-        val today = DateUtils.getCurrentDate()
-        val times = PrayerUtils.loadDetailedPrayerTimes(this, today)
-        if (times.isNotEmpty()) {
-            AdhanScheduler.scheduleFromPrayerMap(this, times)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val today = DateUtils.getCurrentDate()
+            val times = PrayerUtils.loadDetailedPrayerTimes(this, today)
+            if (times.isNotEmpty()) {
+                AdhanScheduler.scheduleFromPrayerMap(this, times)
+            }
         }
     }
 
