@@ -54,7 +54,10 @@ private fun SilentStatusDropdown(
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
+        onExpandedChange = {
+            @Suppress("AssignedValueIsNeverRead")
+            expanded = !expanded
+        },
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         OutlinedTextField(
@@ -103,7 +106,10 @@ private fun SilentMinuteDropdown(
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
+        onExpandedChange = {
+            @Suppress("AssignedValueIsNeverRead")
+            expanded = !expanded
+        },
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         OutlinedTextField(
@@ -284,7 +290,7 @@ fun SilentModeSettingsSection(
         lastInteractionTime = lastInteractionTime
     ) {
 
-        if (!hasDndPermission) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !hasDndPermission) {
             @Suppress("KotlinConstantConditions")
             PermissionRequestRow(
                 title = "مجوز حالت ویبره",
