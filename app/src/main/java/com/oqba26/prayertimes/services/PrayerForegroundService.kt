@@ -176,8 +176,7 @@ class PrayerForegroundService : Service() {
             .build()
     }
 
-    @Suppress("RedundantSuspendModifier")
-    private suspend fun showErrorNotification(title: String, e: Exception) {
+    private fun showErrorNotification(title: String, e: Exception) {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val errorNotification = NotificationCompat.Builder(this, NotificationService.DAILY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_icon)

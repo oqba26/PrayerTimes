@@ -82,7 +82,7 @@
         <service
             android:name=".services.AdhanPlayerService"
             android:exported="false"
-            android_foregroundServiceType="mediaPlayback" />
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- Receivers -->
         <receiver
@@ -172,7 +172,7 @@
         <receiver
             android:name=".receivers.IqamaAlarmReceiver"
             android:enabled="true"
-            android_exported="false" />
+            android:exported="false" />
 
     </application>
 </manifest>
