@@ -1,4 +1,4 @@
-@file:Suppress("AssignedValueIsNeverRead")
+@file:Suppress("AssignedValueIsNeverRead", "RemoveRedundantQualifierName")
 
 package com.oqba26.prayertimes.screens
 
@@ -103,11 +103,11 @@ fun CalendarScreen(
 ) {
     val context = LocalContext.current
 
-    // اضافه کردن این خط برای به‌روز کردن صفحه هر دقیقه
+    // به‌روزرسانی هر دقیقه برای هایلایت کردن وقت بعدی
     val currentTime = remember { mutableStateOf(LocalTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(60_000) // 60 ثانیه
+            kotlinx.coroutines.delay(60_000)
             currentTime.value = LocalTime.now()
         }
     }
@@ -128,16 +128,21 @@ fun CalendarScreen(
     Scaffold(
         bottomBar = {
             BottomBar(
-                currentDate = currentDate,
-                prayers = if (uiState is PrayerViewModel.Result.Success) uiState.data else emptyMap(),
                 onOpenSettings = onOpenSettings,
                 onOpenAlarms = onOpenAlarms,
+                onOpenQibla = {
+                    val intent = android.content.Intent(
+                        context,
+                        com.oqba26.prayertimes.activities.QiblaActivity::class.java
+                    ).apply {
+                        putExtra("IS_DARK", isDarkThemeActive)
+                    }
+                    context.startActivity(intent)
+                },
                 onToggleTheme = onToggleTheme,
                 isDark = isDarkThemeActive,
                 currentViewMode = currentViewMode,
-                onViewModeChange = onViewModeChange,
-                usePersianNumbers = usePersianNumbers,
-                use24HourFormat = use24HourFormat
+                onViewModeChange = onViewModeChange
             )
         }
     ) { innerPadding ->
@@ -163,7 +168,7 @@ fun CalendarScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // آیکون تقویم + اشتراک‌گذاری در سمت چپ
+                    // تقویم + اشتراک‌گذاری سمت چپ
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = {
                             if (currentDate.shamsi != today.shamsi) onDateChange(today) else showShamsiDatePicker = true
@@ -184,12 +189,12 @@ fun CalendarScreen(
                                         usePersianNumbers,
                                         use24HourFormat
                                     )
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                         type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, textToShare)
+                                        putExtra(android.content.Intent.EXTRA_TEXT, textToShare)
                                     }
                                     context.startActivity(
-                                        Intent.createChooser(shareIntent, "اشتراک گذاری با")
+                                        android.content.Intent.createChooser(shareIntent, "اشتراک گذاری با")
                                     )
                                 }
                             }
@@ -202,7 +207,7 @@ fun CalendarScreen(
                         }
                     }
 
-                    // عنوان در سمت راست
+                    // عنوان سمت راست
                     Text(
                         text = "تقویم و اوقات نماز",
                         color = topColor,
@@ -247,12 +252,11 @@ fun CalendarScreen(
                 use24HourFormat = use24HourFormat
             )
 
-            // The padding is now passed to the PrayerTimesList directly
+            // محتوای اصلی
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-
             ) {
                 when (currentViewMode) {
                     ViewMode.PRAYER_TIMES -> {
@@ -305,8 +309,7 @@ fun CalendarScreen(
                             usePersianNumbers = usePersianNumbers,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(bottom = innerPadding.calculateBottomPadding()) // فقط اینجا
-
+                                .padding(bottom = innerPadding.calculateBottomPadding())
                         )
                     }
                 }
@@ -367,18 +370,32 @@ fun CalendarScreenEntryPoint(
                 showXiaomiPermissionDialog = false
                 prefs.edit { putBoolean("shown_xiaomi_dialog", true) }
                 try {
+                    // تلاش اول: مستقیم‌ترین Intent برای صفحه لیست مجوزها
                     val intent = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
                         setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.AppPermissionsEditor")
                         putExtra("extra_pkgname", context.packageName)
                     }
                     context.startActivity(intent)
-                } catch (_: Exception) {
+                } catch (e1: Exception) {
                     try {
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
+                        // تلاش دوم: Fallback به Intent قبلی که صفحه «سایر مجوزها» را نشان می‌داد
+                        val intent = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
+                             setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                            putExtra("extra_pkgname", context.packageName)
                         }
                         context.startActivity(intent)
-                    } catch (_: Exception) { }
+                    } catch (e2: Exception) {
+                        // تلاش سوم: Fallback نهایی به صفحه استاندارد اندروید
+                        try {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                            context.startActivity(intent)
+                        } catch (e3: Exception) {
+                            // اگر هیچ‌کدام کار نکرد، حداقل یک Toast نشان بده
+                            Toast.makeText(context, "لطفاً به صورت دستی به تنظیمات برنامه بروید", Toast.LENGTH_LONG).show()
+                        }
+                    }
                 }
             }
         )

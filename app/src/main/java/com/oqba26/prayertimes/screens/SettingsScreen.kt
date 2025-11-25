@@ -4,21 +4,23 @@ package com.oqba26.prayertimes.screens
 
 import android.annotation.SuppressLint
 import android.app.AlarmManager
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -28,15 +30,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -63,18 +61,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -82,24 +81,19 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.oqba26.prayertimes.R
 import com.oqba26.prayertimes.ui.AppFonts
-import com.oqba26.prayertimes.utils.DateUtils
 import com.oqba26.prayertimes.viewmodels.SettingsViewModel
+import com.oqba26.prayertimes.widget.LargeModernWidgetProvider
+import com.oqba26.prayertimes.widget.ModernWidgetProvider
+import kotlinx.coroutines.delay
 
 private val topBarLightColor = Color(0xFF0E7490)
 private val topBarDarkColor = Color(0xFF4F378B)
 private val onTopBarDarkColor = Color(0xFFEADDFF)
 private val onTopBarLightColor = Color.White
-
-enum class PrayerTime(val id: String, val displayName: String) {
-    Fajr("fajr", "نماز صبح"),
-    Dhuhr("dhuhr", "نماز ظهر"),
-    Asr("asr", "نماز عصر"),
-    Maghrib("maghrib", "نماز مغرب"),
-    Isha("isha", "نماز عشاء")
-}
 
 @Composable
 private fun SettingsTopBar(
@@ -147,8 +141,17 @@ fun ExpandableSettingCard(
     title: String,
     expanded: Boolean,
     onToggle: () -> Unit,
+    isDark: Boolean,
+    lastInteractionTime: Long,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    LaunchedEffect(expanded, lastInteractionTime) {
+        if (expanded) {
+            delay(10000) // 10 seconds
+            onToggle()
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -166,7 +169,7 @@ fun ExpandableSettingCard(
             ) {
                 Text(
                     text = title,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = if (isDark) Color.White else Color.Black,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Icon(
@@ -193,12 +196,16 @@ fun SwitchSettingRow(
     subtitle: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    onInteraction: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = { onCheckedChange(!checked) })
+            .clickable(enabled = enabled) {
+                onCheckedChange(!checked)
+                onInteraction()
+            }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -206,12 +213,19 @@ fun SwitchSettingRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = {
+                onCheckedChange(it)
+                onInteraction()
+            },
             enabled = enabled,
             modifier = Modifier.padding(start = 16.dp)
         )
@@ -250,7 +264,8 @@ fun AdhanSoundDropdown(
     label: String,
     selectedValue: String,
     onValueChange: (String) -> Unit,
-    options: List<Pair<String, String>>
+    options: List<Pair<String, String>>,
+    onInteraction: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = remember(selectedValue, options) {
@@ -259,7 +274,10 @@ fun AdhanSoundDropdown(
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
+        onExpandedChange = {
+            expanded = !expanded
+            onInteraction()
+        },
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         OutlinedTextField(
@@ -283,6 +301,7 @@ fun AdhanSoundDropdown(
                     text = { Text(soundLabel) },
                     onClick = {
                         onValueChange(soundId)
+                        onInteraction()
                         expanded = false
                     }
                 )
@@ -300,7 +319,11 @@ private fun PermissionCard(onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("دسترسی آلارم دقیق", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+            Text(
+                "دسترسی آلارم دقیق",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
             Text(
                 "برای عملکرد صحیح سکوت خودکار، نیاز به دسترسی آلارم‌های دقیق است.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -325,7 +348,8 @@ private fun PermissionCard(onClick: () -> Unit) {
 fun FontSelectorDialog(
     currentFontId: String,
     onDismiss: () -> Unit,
-    onSelectFont: (String) -> Unit
+    onSelectFont: (String) -> Unit,
+    onInteraction: () -> Unit
 ) {
     val fonts = AppFonts.catalog()
     val (selected, onSelected) = remember { mutableStateOf(currentFontId) }
@@ -333,7 +357,11 @@ fun FontSelectorDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = RoundedCornerShape(16.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("انتخاب فونت", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 16.dp))
+                Text(
+                    "انتخاب فونت",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
                 Column(Modifier.selectableGroup()) {
                     fonts.forEach { font ->
                         Row(
@@ -342,7 +370,10 @@ fun FontSelectorDialog(
                                 .height(56.dp)
                                 .selectable(
                                     selected = (font.id == selected),
-                                    onClick = { onSelected(font.id) },
+                                    onClick = {
+                                        onSelected(font.id)
+                                        onInteraction()
+                                    },
                                     role = Role.RadioButton
                                 )
                                 .padding(horizontal = 16.dp),
@@ -371,6 +402,7 @@ fun FontSelectorDialog(
                     Spacer(Modifier.width(8.dp))
                     TextButton(onClick = {
                         onSelectFont(selected)
+                        onInteraction()
                         onDismiss()
                     }) {
                         Text("تایید")
@@ -381,93 +413,12 @@ fun FontSelectorDialog(
     }
 }
 
-
-@Composable
-private fun IqamaMinuteSelector(
-    selectedValue: Int,
-    onValueChange: (Int) -> Unit,
-    usePersianNumbers: Boolean
-) {
-    val minutes = (0..20).toList()
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        val currentMinute = selectedValue.unaryMinus()
-        val label = when (currentMinute) {
-            0 -> "همزمان با نماز"
-            else -> "${DateUtils.convertToPersianNumbers(currentMinute.toString(), usePersianNumbers)} دقیقه مانده به نماز"
-        }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp)
-        ) {
-            items(minutes) { minute ->
-                val isSelected = minute == currentMinute
-                val backgroundColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest)
-                val contentColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
-
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(backgroundColor)
-                        .clickable { onValueChange(-minute) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = DateUtils.convertToPersianNumbers(minute.toString(), usePersianNumbers),
-                        color = contentColor,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            }
-        }
-    }
+fun hasWidget(context: Context): Boolean {
+    val appWidgetManager = AppWidgetManager.getInstance(context)
+    val modernWidget = ComponentName(context, ModernWidgetProvider::class.java)
+    val largeModernWidget = ComponentName(context, LargeModernWidgetProvider::class.java)
+    return appWidgetManager.getAppWidgetIds(modernWidget).isNotEmpty() || appWidgetManager.getAppWidgetIds(largeModernWidget).isNotEmpty()
 }
-
-@Composable
-fun MinuteChipSelector(
-    label: String,
-    selectedValue: Int,
-    range: IntProgression,
-    onValueChange: (Int) -> Unit,
-    usePersianNumbers: Boolean
-) {
-    Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp)
-        ) {
-            items(range.toList()) { minute ->
-                val isSelected = minute == selectedValue
-                val backgroundColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest)
-                val contentColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
-
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(backgroundColor)
-                        .clickable { onValueChange(minute) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = DateUtils.convertToPersianNumbers(minute.toString(), usePersianNumbers),
-                        color = contentColor,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            }
-        }
-    }
-}
-
 
 @SuppressLint("UnusedValue")
 @RequiresApi(Build.VERSION_CODES.S)
@@ -485,10 +436,13 @@ fun SettingsScreen(
     settingsViewModel: SettingsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val alarmManager = ContextCompat.getSystemService(context, AlarmManager::class.java)
 
     var hasExactAlarmPermission by remember { mutableStateOf(alarmManager?.canScheduleExactAlarms() ?: true) }
-    val exactAlarmSettingsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+    val exactAlarmSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
         hasExactAlarmPermission = alarmManager?.canScheduleExactAlarms() ?: true
     }
 
@@ -499,18 +453,32 @@ fun SettingsScreen(
     var iqamaExpanded by remember { mutableStateOf(false) }
     var showFontDialog by remember { mutableStateOf(false) }
 
-    val autoSilentEnabled by settingsViewModel.autoSilentEnabled.collectAsState()
-    val prayerSilentEnabled by settingsViewModel.prayerSilentEnabled.collectAsState()
-    val prayerMinutesBefore by settingsViewModel.prayerMinutesBefore.collectAsState()
-    val prayerMinutesAfter by settingsViewModel.prayerMinutesAfter.collectAsState()
-    val iqamaEnabled by settingsViewModel.iqamaEnabled.collectAsState()
-    val minutesBeforeIqama by settingsViewModel.minutesBeforeIqama.collectAsState()
+    var generalInteractionTime by remember { mutableLongStateOf(0L) }
+    var displayInteractionTime by remember { mutableLongStateOf(0L) }
+    var adhanInteractionTime by remember { mutableLongStateOf(0L) }
+    var silentInteractionTime by remember { mutableLongStateOf(0L) }
+    var iqamaInteractionTime by remember { mutableLongStateOf(0L) }
+
+    var widgetExists by remember { mutableStateOf(hasWidget(context)) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                widgetExists = hasWidget(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     if (showFontDialog) {
         FontSelectorDialog(
             currentFontId = currentFontId,
             onDismiss = { showFontDialog = false },
-            onSelectFont = onSelectFont
+            onSelectFont = onSelectFont,
+            onInteraction = { displayInteractionTime = System.currentTimeMillis() }
         )
     }
 
@@ -529,142 +497,111 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (!hasExactAlarmPermission) {
-                    PermissionCard(onClick = { exactAlarmSettingsLauncher.launch(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) })
+                    PermissionCard(
+                        onClick = {
+                            exactAlarmSettingsLauncher.launch(
+                                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                            )
+                        }
+                    )
                 }
 
                 ExpandableSettingCard(
                     title = "عمومی",
                     expanded = generalExpanded,
-                    onToggle = { generalExpanded = !generalExpanded }
+                    onToggle = { generalExpanded = !generalExpanded },
+                    isDark = isDarkThemeActive,
+                    lastInteractionTime = generalInteractionTime
                 ) {
-                    ClickableSettingRow(
-                        title = "افزودن ویجت به صفحه اصلی",
-                        onClick = onAddWidget
-                    )
+                    if (!widgetExists) {
+                        Button(
+                            onClick = {
+                                onAddWidget()
+                                Toast.makeText(context, "ویجت به صفحه ی اصلی اضافه شد", Toast.LENGTH_SHORT).show()
+                                widgetExists = true
+                                generalInteractionTime = System.currentTimeMillis()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Text("افزودن ویجت به صفحه اصلی")
+                        }
+                    } else {
+                        Text(
+                            text = "ویجت به صفحه ی اصلی اضافه شده است",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
 
                 ExpandableSettingCard(
                     title = "نمایش",
                     expanded = displayExpanded,
-                    onToggle = { displayExpanded = !displayExpanded }
+                    onToggle = { displayExpanded = !displayExpanded },
+                    isDark = isDarkThemeActive,
+                    lastInteractionTime = displayInteractionTime
                 ) {
                     val fontName = AppFonts.catalog().find { it.id == currentFontId }?.label ?: ""
                     ClickableSettingRow(
                         title = "فونت برنامه",
                         value = fontName,
-                        onClick = { showFontDialog = true }
+                        onClick = {
+                            showFontDialog = true
+                            displayInteractionTime = System.currentTimeMillis()
+                        }
                     )
                     HorizontalDivider()
                     SwitchSettingRow(
                         title = "اعداد فارسی",
                         subtitle = "نمایش تمام اعداد در برنامه با فرمت فارسی",
                         checked = usePersianNumbers,
-                        onCheckedChange = onUsePersianNumbersChange
+                        onCheckedChange = onUsePersianNumbersChange,
+                        onInteraction = { displayInteractionTime = System.currentTimeMillis() }
                     )
                     HorizontalDivider()
                     SwitchSettingRow(
                         title = "فرمت ۲۴ ساعته",
                         subtitle = "نمایش زمان با فرمت ۲۴ ساعته (مثال: ۱۷:۳۰)",
                         checked = is24HourFormat,
-                        onCheckedChange = onIs24HourFormatChange
+                        onCheckedChange = onIs24HourFormatChange,
+                        onInteraction = { displayInteractionTime = System.currentTimeMillis() }
                     )
                 }
 
-                ExpandableSettingCard(
-                    title = "اذان",
+                AdhanSettingsSection(
                     expanded = adhanExpanded,
-                    onToggle = { adhanExpanded = !adhanExpanded }
-                ) {
-                    val adhanLabels = stringArrayResource(R.array.adhan_sound_labels)
-                    val adhanIds = stringArrayResource(R.array.adhan_sound_ids)
-                    val adhanSounds = remember(adhanLabels, adhanIds) {
-                        adhanIds.zip(adhanLabels).toList()
-                    }
-                    Text(
-                        "برای هر نماز، صدای اذان مورد نظر را انتخاب کنید. با انتخاب هر صدا، زمان اذان به صورت خودکار زمان‌بندی می‌شود.",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    PrayerTime.entries.forEach { prayer ->
-                        val currentSound by settingsViewModel.getAdhanSoundFlow(prayer.id).collectAsState("off")
-                        AdhanSoundDropdown(
-                            label = prayer.displayName,
-                            selectedValue = currentSound,
-                            onValueChange = { sound -> settingsViewModel.setAdhanSound(prayer.id, sound) },
-                            options = adhanSounds
-                        )
-                    }
-                }
+                    onToggle = { adhanExpanded = !adhanExpanded },
+                    settingsViewModel = settingsViewModel,
+                    usePersianNumbers = usePersianNumbers,
+                    isDark = isDarkThemeActive,
+                    lastInteractionTime = adhanInteractionTime,
+                    onInteraction = { adhanInteractionTime = System.currentTimeMillis() }
+                )
 
-                ExpandableSettingCard(
-                    title = "اقامه",
+                IqamaSettingsSection(
                     expanded = iqamaExpanded,
-                    onToggle = { iqamaExpanded = !iqamaExpanded }
-                ) {
-                    SwitchSettingRow(
-                        title = "فعال کردن اعلان اقامه",
-                        subtitle = "یک اعلان برای یادآوری اقامه نماز دریافت کنید",
-                        checked = iqamaEnabled,
-                        onCheckedChange = { settingsViewModel.updateIqamaEnabled(it) }
-                    )
-                    AnimatedVisibility(iqamaEnabled) {
-                        IqamaMinuteSelector(
-                            selectedValue = minutesBeforeIqama,
-                            onValueChange = { settingsViewModel.updateMinutesBeforeIqama(it) },
-                            usePersianNumbers = usePersianNumbers
-                        )
-                    }
-                }
+                    onToggle = { iqamaExpanded = !iqamaExpanded },
+                    settingsViewModel = settingsViewModel,
+                    usePersianNumbers = usePersianNumbers,
+                    isDark = isDarkThemeActive,
+                    lastInteractionTime = iqamaInteractionTime,
+                    onInteraction = { iqamaInteractionTime = System.currentTimeMillis() }
+                )
 
-
-                ExpandableSettingCard(
-                    title = "سکوت خودکار",
+                SilentModeSettingsSection(
                     expanded = silentExpanded,
-                    onToggle = { silentExpanded = !silentExpanded }
-                ) {
-                    SwitchSettingRow(
-                        title = "فعال کردن سکوت خودکار",
-                        subtitle = "گوشی در زمان‌های مشخص شده برای نمازها به حالت سکوت می‌رود",
-                        checked = autoSilentEnabled,
-                        onCheckedChange = { settingsViewModel.updateAutoSilentEnabled(it) },
-                        enabled = hasExactAlarmPermission
-                    )
-
-                    AnimatedVisibility(visible = autoSilentEnabled && hasExactAlarmPermission) {
-                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                            PrayerTime.entries.forEach { prayer ->
-                                val isPrayerSilentEnabled = prayerSilentEnabled[prayer] ?: false
-                                val before = prayerMinutesBefore[prayer] ?: 10
-                                val after = prayerMinutesAfter[prayer] ?: 10
-
-                                SwitchSettingRow(
-                                    title = prayer.displayName,
-                                    checked = isPrayerSilentEnabled,
-                                    onCheckedChange = { settingsViewModel.updatePrayerSilentEnabled(prayer, it) }
-                                )
-                                AnimatedVisibility(isPrayerSilentEnabled) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        MinuteChipSelector(
-                                            label = "شروع سکوت (دقیقه قبل از نماز)",
-                                            selectedValue = before,
-                                            range = (0..30),
-                                            onValueChange = { v -> settingsViewModel.updatePrayerMinutesBefore(prayer, v) },
-                                            usePersianNumbers = usePersianNumbers
-                                        )
-                                        MinuteChipSelector(
-                                            label = "پایان سکوت (دقیقه بعد از نماز)",
-                                            selectedValue = after,
-                                            range = (0..60 step 5),
-                                            onValueChange = { v -> settingsViewModel.updatePrayerMinutesAfter(prayer, v) },
-                                            usePersianNumbers = usePersianNumbers
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                    onToggle = { silentExpanded = !silentExpanded },
+                    settingsViewModel = settingsViewModel,
+                    usePersianNumbers = usePersianNumbers,
+                    hasExactAlarmPermission = hasExactAlarmPermission,
+                    isDark = isDarkThemeActive,
+                    lastInteractionTime = silentInteractionTime,
+                    onInteraction = { silentInteractionTime = System.currentTimeMillis() }
+                )
             }
         }
     }

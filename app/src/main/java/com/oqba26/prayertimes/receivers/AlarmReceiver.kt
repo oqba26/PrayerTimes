@@ -88,16 +88,18 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun createNotificationChannel(notificationManager: NotificationManager) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                ALARM_CHANNEL_ID,
-                "Alarms",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Channel for alarms"
-                setSound(null, null)
-                enableVibration(false)
+            if (notificationManager.getNotificationChannel(ALARM_CHANNEL_ID) == null) {
+                val channel = NotificationChannel(
+                    ALARM_CHANNEL_ID,
+                    "Alarms",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Channel for alarms"
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+                notificationManager.createNotificationChannel(channel)
             }
-            notificationManager.createNotificationChannel(channel)
         }
     }
 }

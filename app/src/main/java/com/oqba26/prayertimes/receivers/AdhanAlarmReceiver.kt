@@ -5,72 +5,66 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.oqba26.prayertimes.services.AdhanPlayerService
-import com.oqba26.prayertimes.utils.PrayerUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import com.oqba26.prayertimes.services.PrayerForegroundService
 
 /**
- * دریافت‌کنندهٔ اعلان زمان اذان‌ها
- * بعد از دریافت، سرویس پخش اذان را فعال می‌کند.
+ * دریافت‌کنندهٔ آلارم اذان:
+ * - اگر PRAYER_ID = "noop" باشد ⇒ فقط آلارم‌ها را دوباره زمان‌بندی می‌کند (نیمه‌شب).
+ * - در غیر این‌صورت ⇒ سرویس پخش اذان را اجرا می‌کند.
  */
 class AdhanAlarmReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "AdhanAlarmReceiver"
-        private const val MAX_ALLOWED_DRIFT_MS = 10 * 60 * 1000L // 10 دقیقه، حداکثر انحراف مجاز
     }
 
     @SuppressLint("UnsafeProtectedBroadcastReceiver")
     override fun onReceive(context: Context, intent: Intent) {
-        val prayerId = intent.getStringExtra(AdhanPlayerService.EXTRA_PRAYER_ID) ?: return
-        val adhanSound = intent.getStringExtra(AdhanPlayerService.EXTRA_ADHAN_SOUND) ?: "off"
-        val triggerAt = intent.getLongExtra("TRIGGER_AT", -1L)
-        val now = System.currentTimeMillis()
 
-        // 1️⃣ اگر کاربر برای این نماز صدای اذان را "off" کرده باشد، کاری نکن
-        if (adhanSound == "off" || adhanSound.isBlank()) {
-            Log.d(TAG, "⏩ پخش اذان غیرفعال است: $prayerId")
+        // ۱) شناسه نماز را از اینتنت بگیریم
+        //    (هم از EXTRA_PRAYER_ID و هم از "PRAYER_ID" پشتیبانی می‌کنیم)
+        val rawPrayerId = intent.getStringExtra(AdhanPlayerService.EXTRA_PRAYER_ID)
+            ?: intent.getStringExtra("PRAYER_ID")
+
+        if (rawPrayerId == null) {
+            Log.w(TAG, "onReceive called with no PRAYER_ID, ignoring.")
             return
         }
 
-        // 2️⃣ بررسی خطای زمانی - جلوگیری از تریگر جعلی یا قدیمی
-        if (triggerAt > 0 && kotlin.math.abs(now - triggerAt) > MAX_ALLOWED_DRIFT_MS) {
-            Log.w(TAG, "⛔ انحراف زمانی زیاد برای اذان $prayerId (${kotlin.math.abs(now - triggerAt) / 1000}s)")
-            return
-        }
-
-        // 3️⃣ تطبیق prayerId انگلیسی با کلید فارسی داخل JSON (file: prayer_times_24h.json)
-        val shouldPlay = runBlocking {
-            withContext(Dispatchers.IO) {
-                val times = PrayerUtils.loadDetailedPrayerTimes(
-                    context,
-                    com.oqba26.prayertimes.utils.DateUtils.getCurrentDate()
-                )
-
-                val jsonKey = when (prayerId) {
-                    "fajr"    -> "صبح"
-                    "dhuhr"   -> "ظهر"
-                    "asr"     -> "عصر"
-                    "maghrib" -> "مغرب"
-                    "isha"    -> "عشاء"
-                    else      -> null
+        // ۲) اگر "noop" باشد یعنی آلارم نیمه‌شب برای reschedule
+        if (rawPrayerId == "noop") {
+            Log.d(TAG, "Midnight reschedule trigger received (PRAYER_ID=noop)")
+            try {
+                val svcIntent = Intent(context, PrayerForegroundService::class.java).apply {
+                    action = PrayerForegroundService.ACTION_SCHEDULE_ALARMS
                 }
-
-                val refTime = jsonKey?.let { times[it] }
-                Log.d(TAG, "✔️ اذان زمان‌بندی‌شده برای $prayerId با ref = $refTime (key=$jsonKey)")
-                refTime != null
+                ContextCompat.startForegroundService(context, svcIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting PrayerForegroundService from midnight reschedule", e)
             }
-        }
-
-        if (!shouldPlay) {
-            Log.w(TAG, "🚫 زمان اذان در JSON برای $prayerId پیدا نشد؛ پخش نمی‌شود")
             return
         }
 
-        // 4️⃣ شروع سرویس پخش اذان
-        Log.d(TAG, "📢 آغاز پخش اذان برای $prayerId با صدا: $adhanSound")
-        AdhanPlayerService.playNow(context.applicationContext, prayerId, adhanSound)
+        val prayerId = rawPrayerId
+
+        // ۳) صدای اذان انتخاب‌شده را بخوانیم
+        val adhanSoundExtra = intent.getStringExtra(AdhanPlayerService.EXTRA_ADHAN_SOUND)
+
+        // ⚠ برای این‌که مطمئن شویم فعلاً اذان حتماً پخش می‌شود،
+        //   اگر مقدار تهی یا "off" بود، به صورت پیش‌فرض "makkah" را می‌گذاریم.
+        val soundToPlay = if (adhanSoundExtra.isNullOrBlank() || adhanSoundExtra == "off") {
+            Log.w(
+                TAG,
+                "Adhan sound was null/blank/off for $prayerId; using default 'makkah' for debugging."
+            )
+            "makkah"
+        } else {
+            adhanSoundExtra
+        }
+
+        Log.d(TAG, "📢 Starting Adhan playback for $prayerId with sound='$soundToPlay'")
+        AdhanPlayerService.playNow(context.applicationContext, prayerId, soundToPlay)
     }
 }

@@ -1,3 +1,5 @@
+@file:Suppress("unused", "PrivatePropertyName")
+
 package com.oqba26.prayertimes.viewmodels
 
 import android.annotation.SuppressLint
@@ -15,7 +17,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.oqba26.prayertimes.screens.PrayerTime
+import com.oqba26.prayertimes.PrayerTime
 import com.oqba26.prayertimes.services.PrayerForegroundService
 import com.oqba26.prayertimes.widget.LargeModernWidgetProvider
 import com.oqba26.prayertimes.widget.ModernWidgetProvider
@@ -33,6 +35,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     @SuppressLint("StaticFieldLeak")
     private val context = getApplication<Application>().applicationContext
 
+    // --- ثابت‌ها ---
+    private val DEFAULT_IQAMA_TEXT = "اکنون زمان اقامه {prayer} است."
+
     // --- Preference Keys ---
     private val THEME_ID = stringPreferencesKey("themeId")
     private val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
@@ -40,6 +45,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val AUTO_SILENT_ENABLED = booleanPreferencesKey("auto_silent_enabled")
     private val IQAMA_ENABLED = booleanPreferencesKey("iqama_enabled")
     private val MINUTES_BEFORE_IQAMA = intPreferencesKey("minutes_before_iqama")
+    private val IQAMA_NOTIFICATION_TEXT = stringPreferencesKey("iqama_notification_text")
     private val USE_24_HOUR_FORMAT = booleanPreferencesKey("use_24_hour_format")
     private val USE_PERSIAN_NUMBERS = booleanPreferencesKey("use_persian_numbers")
 
@@ -68,11 +74,31 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _minutesBeforeIqama = MutableStateFlow(10)
     val minutesBeforeIqama = _minutesBeforeIqama.asStateFlow()
 
+    private val _iqamaNotificationText = MutableStateFlow(DEFAULT_IQAMA_TEXT)
+    val iqamaNotificationText = _iqamaNotificationText.asStateFlow()
+
     private val _is24HourFormat = MutableStateFlow(true)
     val is24HourFormat = _is24HourFormat.asStateFlow()
 
     private val _usePersianNumbers = MutableStateFlow(true)
     val usePersianNumbers = _usePersianNumbers.asStateFlow()
+
+    private val _prayerMinutesBeforeAdhan = MutableStateFlow<Map<PrayerTime, Int>>(emptyMap())
+    val prayerMinutesBeforeAdhan = _prayerMinutesBeforeAdhan.asStateFlow()
+
+    val allAdhansSet: Flow<Boolean> = context.dataStore.data.map {
+        PrayerTime.entries.all { prayer ->
+            val key = stringPreferencesKey("adhan_sound_${prayer.id}")
+            (it[key] ?: "off") != "off"
+        }
+    }
+
+    val allSilentEnabled: Flow<Boolean> = context.dataStore.data.map {
+        PrayerTime.entries.all { prayer ->
+            val key = booleanPreferencesKey("silent_enabled_${prayer.id}")
+            it[key] ?: false
+        }
+    }
 
 
     init {
@@ -82,6 +108,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private fun loadSettings() {
         viewModelScope.launch {
             val settings = context.dataStore.data.first()
+
             _themeId.value = settings[THEME_ID] ?: "system"
             _fontId.value = settings[FONT_ID] ?: "estedad"
             _autoSilentEnabled.value = settings[AUTO_SILENT_ENABLED] ?: false
@@ -89,28 +116,40 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val enabledMap = mutableMapOf<PrayerTime, Boolean>()
             val beforeMap = mutableMapOf<PrayerTime, Int>()
             val afterMap = mutableMapOf<PrayerTime, Int>()
+            val beforeAdhanMap = mutableMapOf<PrayerTime, Int>()
 
             PrayerTime.entries.forEach { prayer ->
                 val enabledKey = booleanPreferencesKey("silent_enabled_${prayer.id}")
                 val beforeKey = intPreferencesKey("minutes_before_silent_${prayer.id}")
                 val afterKey = intPreferencesKey("minutes_after_silent_${prayer.id}")
+                val beforeAdhanKey = intPreferencesKey("minutes_before_adhan_${prayer.id}")
 
                 enabledMap[prayer] = settings[enabledKey] ?: false
                 beforeMap[prayer] = settings[beforeKey] ?: 10
                 afterMap[prayer] = settings[afterKey] ?: 10
+                beforeAdhanMap[prayer] = settings[beforeAdhanKey] ?: 0
             }
 
             _prayerSilentEnabled.value = enabledMap
             _prayerMinutesBefore.value = beforeMap
             _prayerMinutesAfter.value = afterMap
-
+            _prayerMinutesBeforeAdhan.value = beforeAdhanMap
 
             _iqamaEnabled.value = settings[IQAMA_ENABLED] ?: false
             _minutesBeforeIqama.value = settings[MINUTES_BEFORE_IQAMA] ?: 10
 
+            // متن نوتیف اقامه
+// - null  یا برابر متن پیش‌فرض  => فیلد تنظیمات را خالی نشان بده (placeholder بگوید متن پیش‌فرض چیه)
+// - هر چیز دیگر => متن سفارشی کاربر
+            val storedTemplate = settings[IQAMA_NOTIFICATION_TEXT]
+            _iqamaNotificationText.value = when (storedTemplate) {
+                null -> ""
+                DEFAULT_IQAMA_TEXT -> ""   // مهاجرت از نسخه قدیمی که پیش‌فرض را ذخیره می‌کرد
+                else -> storedTemplate
+            }
+
             _is24HourFormat.value = settings[USE_24_HOUR_FORMAT] ?: true
             _usePersianNumbers.value = settings[USE_PERSIAN_NUMBERS] ?: true
-
         }
     }
 
@@ -128,7 +167,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             context.dataStore.edit { settings ->
                 settings[key] = sound
             }
-            // No need to update a local state flow if the UI directly collects from the DataStore flow
             notifyWidgets()
             PrayerForegroundService.scheduleAlarms(context)
         }
@@ -221,7 +259,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-
     fun updateIqamaEnabled(isEnabled: Boolean) {
         viewModelScope.launch {
             context.dataStore.edit { settings ->
@@ -239,6 +276,31 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
             _minutesBeforeIqama.value = minutes
             PrayerForegroundService.scheduleAlarms(context)
+        }
+    }
+
+    fun updatePrayerMinutesBeforeAdhan(prayer: PrayerTime, minutes: Int) {
+        viewModelScope.launch {
+            val key = intPreferencesKey("minutes_before_adhan_${prayer.id}")
+            context.dataStore.edit { settings ->
+                settings[key] = minutes
+            }
+            _prayerMinutesBeforeAdhan.value = _prayerMinutesBeforeAdhan.value.toMutableMap().apply {
+                this[prayer] = minutes
+            }
+            PrayerForegroundService.scheduleAlarms(context)
+        }
+    }
+
+    // ⬇️ جدید: بروزرسانی متن نوتیف اقامه
+    fun updateIqamaNotificationText(text: String) {
+        viewModelScope.launch {
+            context.dataStore.edit { settings ->
+                // رشته به همان شکلی که کاربر می‌نویسد ذخیره می‌شود
+                // خالی = یعنی از متن پیش‌فرض استفاده کن
+                settings[IQAMA_NOTIFICATION_TEXT] = text
+            }
+            _iqamaNotificationText.value = text
         }
     }
 

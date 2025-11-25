@@ -87,8 +87,6 @@ fun MonthCalendarView(
     val density = LocalDensity.current
     val gapPx = with(density) { 8.dp.roundToPx() }
 
-    val grey300 = Color(0xFFE0E0E0)
-
     val monthTitleBoxHeight = 32.dp
     val weekHeaderHeight = 30.dp
     val gridInternalVPadding = 0.dp
@@ -103,7 +101,6 @@ fun MonthCalendarView(
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             val monthTitleBackgroundColor = if (isDark) DarkThemePurpleBackground else Color(0xFF0E7490)
             val monthTitleTextColorValue = if (isDark) DarkThemeOnPurpleText else Color.White
-            val monthTitleBorderColorValue = if (isDark) DarkThemePurpleBackground.copy(alpha = 0.7f) else grey300
 
             Box(
                 modifier = Modifier
@@ -121,18 +118,15 @@ fun MonthCalendarView(
             val mainCalendarBackgroundBrush: Brush =
                 if (isDark) SolidColor(MaterialTheme.colorScheme.surface)
                 else Brush.linearGradient(colors = listOf(Color(0xFFF8F9FA), Color(0xFFE9ECEF)))
-            val mainCalendarBorderColor = if (isDark) MaterialTheme.colorScheme.outline else grey300
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(brush = mainCalendarBackgroundBrush, shape = RectangleShape)
-                    //.border(BorderStroke(1.dp, mainCalendarBorderColor), RectangleShape)
             ) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = contentHorizontalPadding)) {
                         val weekHeaderBackgroundColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFFAFAFA)
-                        val weekHeaderBorderColor = if (isDark) MaterialTheme.colorScheme.outline else Color(0xFFEEEEEE)
                         val dayHeaderTextColor = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF616161)
                         val fridayHeaderTextColor = Color.Red
 
@@ -141,9 +135,6 @@ fun MonthCalendarView(
                                 .fillMaxWidth()
                                 .height(weekHeaderHeight)
                                 .background(color = weekHeaderBackgroundColor, shape = RectangleShape)
-                                //.border(BorderStroke(1.dp, weekHeaderBorderColor), RectangleShape),
-                            //horizontalArrangement = Arrangement.SpaceAround,
-                            //verticalAlignment = Alignment.CenterVertically
                         ) {
                             val headers = listOf("ش", "ی", "د", "س", "چ", "پ", "ج")
                             headers.forEachIndexed { index, label ->

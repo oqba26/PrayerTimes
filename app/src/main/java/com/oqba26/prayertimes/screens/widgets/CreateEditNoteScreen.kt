@@ -771,7 +771,7 @@ private fun WheelNumberPicker(
 ) {
     val items = remember(range) { range.toList() }
     val half = remember(visibleCount) { visibleCount / 2 }
-    val decorated = remember(items, half) { List(half) { null } + items.map { it as Int? } + List(half) { null } }
+    val decorated = remember(items, half) { List(half) { null } + items.map { it } + List(half) { null } }
 
     val itemHeightPx = with(LocalDensity.current) { itemHeight.roundToPx() }
     val initialIndex = remember(value, items, half) { items.indexOf(value).coerceAtLeast(0) }

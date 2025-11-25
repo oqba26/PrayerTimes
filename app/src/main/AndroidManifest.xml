@@ -3,19 +3,26 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permissions -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" android:maxSdkVersion="33" tools:ignore="ForegroundServicePermission" />
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE"
+        android:maxSdkVersion="33"
+        tools:ignore="ForegroundServicePermission" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" /> -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+    <uses-permission
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
         tools:ignore="ProtectedPermissions" />
 
 
@@ -29,6 +36,11 @@
         android:supportsRtl="false"
         android:theme="@style/Theme.PrayerTimes"
         tools:targetApi="34">
+
+        <activity
+            android:name=".activities.QiblaActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PrayerTimes" />
 
         <activity
             android:name=".MainActivity"
@@ -59,7 +71,7 @@
             android:name=".activities.NoteEditorActivity"
             android:label="@string/note_editor_title"
             android:exported="false"
-            android:theme="@style/Theme.PrayerTimes.EdgeToEdge"/>
+            android:theme="@style/Theme.PrayerTimes.EdgeToEdge" />
 
 
         <!-- Services -->
@@ -70,9 +82,14 @@
         <service
             android:name=".services.AdhanPlayerService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android_foregroundServiceType="mediaPlayback" />
 
         <!-- Receivers -->
+        <receiver
+            android:name=".services.MidnightReceiver"
+            android:enabled="true"
+            android:exported="false" />
+        
         <receiver
             android:name=".receivers.AdhanAlarmReceiver"
             android:exported="false" />
@@ -125,6 +142,10 @@
                 <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
                 <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
                 <action android:name="ACTION_THEME_CHANGED" />
+                <!-- اضافه شده: تا ویجت مستقیم از تغییر تاریخ باخبر بشه -->
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <!-- این TIME_TICK در عمل توسط سیستم به Manifest-Receiver داده نمیشه،
+                     ولی ضرری هم نداره؛ می‌تونی بذاری بمونه یا حذفش کنی -->
                 <action android:name="android.intent.action.TIME_TICK" />
             </intent-filter>
             <meta-data
@@ -139,6 +160,8 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="ACTION_THEME_CHANGED" />
+                <!-- اضافه شده: تا ویجت بزرگ هم مستقیم تغییر تاریخ رو بگیره -->
+                <action android:name="android.intent.action.DATE_CHANGED" />
                 <action android:name="android.intent.action.TIME_TICK" />
             </intent-filter>
             <meta-data
@@ -149,7 +172,7 @@
         <receiver
             android:name=".receivers.IqamaAlarmReceiver"
             android:enabled="true"
-            android:exported="false" />
+            android_exported="false" />
 
     </application>
 </manifest>

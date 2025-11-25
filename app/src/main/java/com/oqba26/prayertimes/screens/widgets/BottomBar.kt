@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -20,24 +21,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.oqba26.prayertimes.R
-import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.screens.DarkThemeOnPurpleText
 import com.oqba26.prayertimes.screens.DarkThemePurpleBackground
 import com.oqba26.prayertimes.screens.ViewMode
 
-@Suppress("unused")
 @Composable
 fun BottomBar(
-    currentDate: MultiDate,
-    prayers: Map<String, String>,
     onOpenSettings: () -> Unit,
     onOpenAlarms: () -> Unit,
+    onOpenQibla: () -> Unit,
     onToggleTheme: () -> Unit,
     isDark: Boolean,
     currentViewMode: ViewMode,
-    onViewModeChange: (ViewMode) -> Unit,
-    usePersianNumbers: Boolean,
-    use24HourFormat: Boolean
+    onViewModeChange: (ViewMode) -> Unit
 ) {
     val containerColor: Color
     val selectedColor: Color
@@ -100,6 +96,26 @@ fun BottomBar(
             },
             selected = currentViewMode == ViewMode.NOTES,
             onClick = { onViewModeChange(ViewMode.NOTES) },
+            colors = NavigationBarItemDefaults.colors(indicatorColor = indicatorColor)
+        )
+
+        // قبله‌نما
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    Icons.Filled.Explore,
+                    contentDescription = "قبله‌نما",
+                    tint = unselectedColor
+                )
+            },
+            label = {
+                Text(
+                    "قبله‌نما",
+                    color = unselectedColor
+                )
+            },
+            selected = false,
+            onClick = onOpenQibla,
             colors = NavigationBarItemDefaults.colors(indicatorColor = indicatorColor)
         )
 

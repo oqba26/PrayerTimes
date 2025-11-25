@@ -8,10 +8,6 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 
-/**
- * Receiver برای فعال/غیرفعال کردن سکوت به حالت ویبره (بدون استفاده از DND).
- * هر نماز می‌تونه محدوده‌ای از زمان ویبره خودش رو تنظیم کنه.
- */
 class SilentModeReceiver : BroadcastReceiver() {
 
     companion object {
@@ -20,7 +16,7 @@ class SilentModeReceiver : BroadcastReceiver() {
 
         private const val PREFS = "silent_state"
         private const val KEY_ACTIVE_COUNT = "active_count"
-        private const val KEY_PREV_RINGER = "prev_ringer"
+        private const val KEY_PREV_RINGER_MODE = "prev_ringer_mode"
 
         private const val TAG = "SilentModeReceiver"
     }
@@ -34,28 +30,40 @@ class SilentModeReceiver : BroadcastReceiver() {
             ACTION_SILENT -> {
                 val active = prefs.getInt(KEY_ACTIVE_COUNT, 0) + 1
                 prefs.edit { putInt(KEY_ACTIVE_COUNT, active) }
-                Log.d(TAG, "🔇 درخواست فعال‌کردن ویبره | شمارنده فعال: $active")
+                Log.d(TAG, "🔇 ACTION_SILENT | activeCount=$active")
 
                 if (active == 1) {
-                    // ذخیره حالت فعلی برای بازگردانی بعداً
-                    prefs.edit { putInt(KEY_PREV_RINGER, am.ringerMode) }
+                    val prevMode = am.ringerMode
+                    prefs.edit {
+                        putInt(KEY_PREV_RINGER_MODE, prevMode)
+                    }
 
-                    // بدون نیاز به مجوز، فقط به ویبره برو
-                    am.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-                    Log.d(TAG, "✅ گوشی روی ویبره تنظیم شد")
+                    try {
+                        am.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                        Log.d(TAG, "✅ Entered prayer silent mode: switched to VIBRATE. Previous mode was $prevMode")
+                    } catch (e: SecurityException) {
+                        Log.w(TAG, "Cannot change ringer mode to VIBRATE (need DND access?)", e)
+                    }
                 }
             }
 
             ACTION_UNSILENT -> {
                 val current = (prefs.getInt(KEY_ACTIVE_COUNT, 0) - 1).coerceAtLeast(0)
                 prefs.edit { putInt(KEY_ACTIVE_COUNT, current) }
-                Log.d(TAG, "🔔 درخواست خروج از ویبره | شمارنده فعال: $current")
+                Log.d(TAG, "🔔 ACTION_UNSILENT | activeCount=$current")
 
                 if (current == 0) {
-                    // بازگرداندن حالت قبلی (Normal یا هر حالت دیگر)
-                    val prev = prefs.getInt(KEY_PREV_RINGER, AudioManager.RINGER_MODE_NORMAL)
-                    am.ringerMode = prev
-                    Log.d(TAG, "✅ حالت قبلی گوشی بازگردانده شد (prev=$prev)")
+                    val prevMode = prefs.getInt(
+                        KEY_PREV_RINGER_MODE,
+                        AudioManager.RINGER_MODE_NORMAL
+                    )
+
+                    try {
+                        am.ringerMode = prevMode
+                        Log.d(TAG, "✅ Exit prayer silent mode: restored ringer mode to $prevMode")
+                    } catch (e: SecurityException) {
+                        Log.w(TAG, "Cannot restore ringer mode (need DND access?)", e)
+                    }
                 }
             }
         }

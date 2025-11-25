@@ -47,6 +47,8 @@ open class ModernWidgetProvider : AppWidgetProvider() {
         const val ACTION_WIDGET_PREV = "com.oqba26.prayertimes.widget.PREV"
         const val ACTION_WIDGET_NEXT = "com.oqba26.prayertimes.widget.NEXT"
         const val ACTION_WIDGET_TODAY = "com.oqba26.prayertimes.widget.TODAY"
+        // Custom action for midnight date change, sent by the service.
+        const val ACTION_DATE_CHANGED_BY_SERVICE = "com.oqba26.prayertimes.widget.DATE_CHANGED_BY_SERVICE"
 
         private const val PREFS = "widget_prefs"
         private fun keySel(id: Int) = "selected_$id"
@@ -72,28 +74,25 @@ open class ModernWidgetProvider : AppWidgetProvider() {
         val mgr = AppWidgetManager.getInstance(context)
         val cn = ComponentName(context, this.javaClass)
 
-        val appWidgetIds = mgr.getAppWidgetIds(cn)
-        if (appWidgetIds == null || appWidgetIds.isEmpty()) {
-            return
-        }
+        val appWidgetIds = mgr.getAppWidgetIds(cn).takeIf { it?.isNotEmpty() == true } ?: return
 
         val pendingResult = goAsync()
         scope.launch {
             try {
                 when (intent.action) {
-                    Intent.ACTION_TIME_TICK,
-                    Intent.ACTION_DATE_CHANGED,
-                    AppWidgetManager.ACTION_APPWIDGET_UPDATE -> {
+                    // This action is now sent by the service at midnight to reset the date.
+                    ACTION_DATE_CHANGED_BY_SERVICE -> {
                         for (appWidgetId in appWidgetIds) {
-                            // اگر روز تغییر کرده باشد، تاریخ انتخاب شده ویجت را به امروز بازنشانی می‌کنیم
-                            if (intent.action == Intent.ACTION_DATE_CHANGED) {
-                                val newDate = DateUtils.getCurrentDate()
-                                setSelectedDate(context, appWidgetId, newDate)
-                            }
+                            setSelectedDate(context, appWidgetId, DateUtils.getCurrentDate())
                             updateOneWidget(context, mgr, appWidgetId)
                         }
                     }
-
+                    // This action is now sent by the service every minute to update the time.
+                    AppWidgetManager.ACTION_APPWIDGET_UPDATE -> {
+                        for (appWidgetId in appWidgetIds) {
+                            updateOneWidget(context, mgr, appWidgetId)
+                        }
+                    }
                     ACTION_WIDGET_PREV, ACTION_WIDGET_NEXT, ACTION_WIDGET_TODAY -> {
                         val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
                         if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
