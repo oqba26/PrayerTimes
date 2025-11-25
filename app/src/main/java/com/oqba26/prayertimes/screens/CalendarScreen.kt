@@ -376,7 +376,7 @@ fun CalendarScreenEntryPoint(
                         putExtra("extra_pkgname", context.packageName)
                     }
                     context.startActivity(intent)
-                } catch (e1: Exception) {
+                } catch (_: Exception) {
                     try {
                         // تلاش دوم: Fallback به Intent قبلی که صفحه «سایر مجوزها» را نشان می‌داد
                         val intent = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
@@ -384,14 +384,14 @@ fun CalendarScreenEntryPoint(
                             putExtra("extra_pkgname", context.packageName)
                         }
                         context.startActivity(intent)
-                    } catch (e2: Exception) {
+                    } catch (_: Exception) {
                         // تلاش سوم: Fallback نهایی به صفحه استاندارد اندروید
                         try {
                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                                 data = Uri.fromParts("package", context.packageName, null)
                             }
                             context.startActivity(intent)
-                        } catch (e3: Exception) {
+                        } catch (_: Exception) {
                             // اگر هیچ‌کدام کار نکرد، حداقل یک Toast نشان بده
                             Toast.makeText(context, "لطفاً به صورت دستی به تنظیمات برنامه بروید", Toast.LENGTH_LONG).show()
                         }

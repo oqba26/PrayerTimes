@@ -1,8 +1,9 @@
 package com.oqba26.prayertimes.screens
 
-import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
+@RequiresApi(Build.VERSION_CODES.M)
 @Composable
 fun PermissionRequestRow(
     title: String,

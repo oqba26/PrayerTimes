@@ -5,6 +5,8 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.oqba26.prayertimes.services.MidnightReceiver
 import java.util.Calendar
 
@@ -13,6 +15,7 @@ object PrayerAlarmManager {
     private const val MIDNIGHT_ALARM_REQUEST_CODE = 1001
     const val ACTION_MIDNIGHT_ALARM = "com.oqba26.prayertimes.MIDNIGHT_ALARM"
 
+    @RequiresApi(Build.VERSION_CODES.M)
     @SuppressLint("ScheduleExactAlarm")
     fun scheduleMidnightAlarm(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager

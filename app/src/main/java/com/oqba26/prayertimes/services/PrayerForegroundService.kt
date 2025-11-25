@@ -75,6 +75,7 @@ class PrayerForegroundService : Service() {
             startServiceInternal(context, ACTION_START)
         }
 
+        @Suppress("unused")
         fun stop(context: Context) {
             if (!isRunning) return
             startServiceInternal(context, ACTION_STOP)
@@ -175,6 +176,7 @@ class PrayerForegroundService : Service() {
             .build()
     }
 
+    @Suppress("RedundantSuspendModifier")
     private suspend fun showErrorNotification(title: String, e: Exception) {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val errorNotification = NotificationCompat.Builder(this, NotificationService.DAILY_CHANNEL_ID)
