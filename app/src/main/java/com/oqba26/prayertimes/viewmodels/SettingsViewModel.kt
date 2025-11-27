@@ -48,6 +48,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val IQAMA_NOTIFICATION_TEXT = stringPreferencesKey("iqama_notification_text")
     private val USE_24_HOUR_FORMAT = booleanPreferencesKey("use_24_hour_format")
     private val USE_PERSIAN_NUMBERS = booleanPreferencesKey("use_persian_numbers")
+    private val USE_NUMERIC_DATE_FORMAT_MAIN = booleanPreferencesKey("use_numeric_date_format_main")
+    private val USE_NUMERIC_DATE_FORMAT_WIDGET = booleanPreferencesKey("use_numeric_date_format_widget")
+    private val USE_NUMERIC_DATE_FORMAT_NOTIFICATION = booleanPreferencesKey("use_numeric_date_format_notification")
+
 
     // --- State Flows ---
     private val _themeId = MutableStateFlow("system")
@@ -82,6 +86,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val _usePersianNumbers = MutableStateFlow(true)
     val usePersianNumbers = _usePersianNumbers.asStateFlow()
+
+    private val _useNumericDateFormatMain = MutableStateFlow(false)
+    val useNumericDateFormatMain = _useNumericDateFormatMain.asStateFlow()
+
+    private val _useNumericDateFormatWidget = MutableStateFlow(false)
+    val useNumericDateFormatWidget = _useNumericDateFormatWidget.asStateFlow()
+
+    private val _useNumericDateFormatNotification = MutableStateFlow(false)
+    val useNumericDateFormatNotification = _useNumericDateFormatNotification.asStateFlow()
 
     private val _prayerMinutesBeforeAdhan = MutableStateFlow<Map<PrayerTime, Int>>(emptyMap())
     val prayerMinutesBeforeAdhan = _prayerMinutesBeforeAdhan.asStateFlow()
@@ -150,6 +163,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
             _is24HourFormat.value = settings[USE_24_HOUR_FORMAT] ?: true
             _usePersianNumbers.value = settings[USE_PERSIAN_NUMBERS] ?: true
+            _useNumericDateFormatMain.value = settings[USE_NUMERIC_DATE_FORMAT_MAIN] ?: false
+            _useNumericDateFormatWidget.value = settings[USE_NUMERIC_DATE_FORMAT_WIDGET] ?: false
+            _useNumericDateFormatNotification.value = settings[USE_NUMERIC_DATE_FORMAT_NOTIFICATION] ?: false
         }
     }
 
@@ -321,6 +337,35 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
             _usePersianNumbers.value = usePersian
             notifyWidgets()
+        }
+    }
+
+    fun updateUseNumericDateFormatMain(useNumeric: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { settings ->
+                settings[USE_NUMERIC_DATE_FORMAT_MAIN] = useNumeric
+            }
+            _useNumericDateFormatMain.value = useNumeric
+        }
+    }
+
+    fun updateUseNumericDateFormatWidget(useNumeric: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { settings ->
+                settings[USE_NUMERIC_DATE_FORMAT_WIDGET] = useNumeric
+            }
+            _useNumericDateFormatWidget.value = useNumeric
+            notifyWidgets()
+        }
+    }
+
+    fun updateUseNumericDateFormatNotification(useNumeric: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { settings ->
+                settings[USE_NUMERIC_DATE_FORMAT_NOTIFICATION] = useNumeric
+            }
+            _useNumericDateFormatNotification.value = useNumeric
+            PrayerForegroundService.scheduleAlarms(context)
         }
     }
 }

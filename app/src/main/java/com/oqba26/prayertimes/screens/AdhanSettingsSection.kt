@@ -51,8 +51,8 @@ fun MinuteDropdown(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = {
-            @Suppress("AssignedValueIsNeverRead")
-            expanded = !expanded
+            expanded = it
+            onInteraction()
         },
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
@@ -101,7 +101,10 @@ fun PrayerAdhanSettingRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { isExpanded = !isExpanded }
+                .clickable {
+                    isExpanded = !isExpanded
+                    onInteraction()
+                }
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -139,6 +142,7 @@ fun PrayerAdhanSettingRow(
                         range = 0..60,
                         onValueChange = { minutes ->
                             settingsViewModel.updatePrayerMinutesBeforeAdhan(prayer, minutes)
+                            onInteraction()
                         },
                         usePersianNumbers = usePersianNumbers,
                         onInteraction = onInteraction

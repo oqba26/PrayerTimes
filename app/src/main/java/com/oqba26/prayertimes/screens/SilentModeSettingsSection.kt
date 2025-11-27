@@ -46,7 +46,8 @@ import com.oqba26.prayertimes.viewmodels.SettingsViewModel
 @Composable
 private fun SilentStatusDropdown(
     selectedValue: Boolean,
-    onValueChange: (Boolean) -> Unit
+    onValueChange: (Boolean) -> Unit,
+    onInteraction: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val options = listOf(true to "فعال", false to "غیرفعال")
@@ -55,8 +56,8 @@ private fun SilentStatusDropdown(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = {
-            @Suppress("AssignedValueIsNeverRead")
-            expanded = !expanded
+            expanded = it
+            onInteraction()
         },
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
@@ -81,6 +82,7 @@ private fun SilentStatusDropdown(
                     text = { Text(label) },
                     onClick = {
                         onValueChange(value)
+                        onInteraction()
                         expanded = false
                     }
                 )
@@ -107,8 +109,8 @@ private fun SilentMinuteDropdown(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = {
-            @Suppress("AssignedValueIsNeverRead")
-            expanded = !expanded
+            expanded = it
+            onInteraction()
         },
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
@@ -165,7 +167,10 @@ private fun PrayerSilentSettingRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { isExpanded = !isExpanded }
+                .clickable {
+                    isExpanded = !isExpanded
+                    onInteraction()
+                }
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -190,7 +195,8 @@ private fun PrayerSilentSettingRow(
                             isExpanded = false
                         }
                         onInteraction()
-                    }
+                    },
+                    onInteraction = onInteraction
                 )
 
                 AnimatedVisibility(visible = isEnabled) {
@@ -204,6 +210,7 @@ private fun PrayerSilentSettingRow(
                                     prayer,
                                     v
                                 )
+                                onInteraction()
                             },
                             usePersianNumbers = usePersianNumbers,
                             timingLabel = "قبل",
@@ -219,6 +226,7 @@ private fun PrayerSilentSettingRow(
                                     prayer,
                                     v
                                 )
+                                onInteraction()
                             },
                             usePersianNumbers = usePersianNumbers,
                             timingLabel = "بعد",

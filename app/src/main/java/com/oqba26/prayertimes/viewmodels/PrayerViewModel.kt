@@ -1,21 +1,23 @@
 package com.oqba26.prayertimes.viewmodels
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.models.UserNote // فرض بر اینکه این import لازم است
 import com.oqba26.prayertimes.screens.ViewMode // فرض بر اینکه این import لازم است
-import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.utils.DateUtils.getCurrentDate
-import com.oqba26.prayertimes.utils.PrayerUtils.getCurrentPrayerNameFixed
-import com.oqba26.prayertimes.utils.PrayerUtils.loadPrayerTimes
+import com.oqba26.prayertimes.utils.PrayerUtils
+import com.oqba26.prayertimes.utils.PrayerUtils.loadDetailedPrayerTimes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.time.LocalTime
 
 class PrayerViewModel : ViewModel() {
     sealed class Result<out T> {
@@ -25,22 +27,24 @@ class PrayerViewModel : ViewModel() {
     }
     // selectedDate
     private val _currentDate = MutableStateFlow(getCurrentDate())
+    @Suppress("unused")
     val selectedDate: StateFlow<MultiDate> = _currentDate.asStateFlow()
 
     // uiState (prayer times data)
     private val _uiState = MutableStateFlow<Result<Map<String, String>>>(Result.Loading)
     val uiState: StateFlow<Result<Map<String, String>>> = _uiState.asStateFlow()
-    // val prayerTimesDataPublic: StateFlow<Result<Map<String, String>>> get() = uiState // نام جایگزین در صورت نیاز
 
     // currentPrayer
-    private val _currentPrayer = MutableStateFlow("")
+    private val _currentPrayer = MutableStateFlow<String?>("")
 
     // userNotes
     private val _userNotes = MutableStateFlow<Map<String, UserNote>>(emptyMap())
+    @Suppress("unused")
     val userNotes: StateFlow<Map<String, UserNote>> = _userNotes.asStateFlow()
 
     // currentViewMode
     private val _currentViewMode = MutableStateFlow(ViewMode.PRAYER_TIMES)
+    @Suppress("unused")
     val currentViewMode: StateFlow<ViewMode> = _currentViewMode.asStateFlow()
 
     @SuppressLint("StaticFieldLeak")
@@ -49,7 +53,6 @@ class PrayerViewModel : ViewModel() {
 
     fun loadData(context: Context) {
         this.context = context
-        // loadUserNotes(context) // اگر می‌خواهید یادداشت‌ها همزمان با داده‌های نماز بارگذاری شوند
         loadPrayerTimesForDate(_currentDate.value)
         startPrayerTimeChecker()
     }
@@ -70,21 +73,13 @@ class PrayerViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = Result.Loading
             try {
-                val times = loadPrayerTimes(ctx, date)
+                val times = loadDetailedPrayerTimes(ctx, date)
                 if (times.isEmpty()) {
                     _uiState.value = Result.Error("اوقات شرعی برای این تاریخ موجود نیست")
                 } else {
                     prayerTimesData = times
                     _uiState.value = Result.Success(times)
-                    updateCurrentPrayer() // به‌روزرسانی نماز فعلی پس از دریافت داده‌ها
-                    Log.d("PrayerViewModel", "داده‌های نماز به‌روز شد: ${times.keys}")
-                    // تست وجود عشاء
-                    if (times.containsKey("عشاء")) {
-                        Log.d("PrayerViewModel", "✅ عشاء موجود است: ${times["عشاء"]}")
-                    } else {
-                        Log.d("PrayerViewModel", "❌ عشاء موجود نیست!")
-                        Log.d("PrayerViewModel", "کلیدهای دریافتی: ${times.keys.toList()}")
-                    }
+                    updateCurrentPrayer()
                 }
             } catch (e: Exception) {
                 val errorMessage = e.localizedMessage ?: "خطا در دریافت داده‌ها"
@@ -95,39 +90,18 @@ class PrayerViewModel : ViewModel() {
     }
 
     private fun updateCurrentPrayer() {
-        // استفاده از uiState به جای prayerTimesData
         val currentData = when (val state = _uiState.value) {
             is Result.Success -> state.data
-            else -> {
-                Log.w("PrayerViewModel", "uiState در حالت Success نیست: ${_uiState.value}")
-                return
-            }
+            else -> return
         }
 
         if (currentData.isNotEmpty()) {
-            val current = getCurrentPrayerNameFixed(currentData)
-
-            // لاگ وضعیت قبل و بعد از به‌روزرسانی
-            Log.d("PrayerViewModel", "به‌روزرسانی نماز فعلی:")
-            Log.d("PrayerViewModel", "  مقدار قبلی: ${_currentPrayer.value}")
-            Log.d("PrayerViewModel", "  مقدار جدید: $current")
-            Log.d("PrayerViewModel", "  آیا تغییر کرده?: ${_currentPrayer.value != current}")
-
-            _currentPrayer.value = current
-
-            // لاگ وضعیت تمام نمازها برای مقایسه
-            Log.d("PrayerViewModel", "وضعیت نمازها:")
-            currentData.forEach { (prayer, time) ->
-                val isCurrent = prayer == current
-                Log.d("PrayerViewModel", "  $prayer: $time ${if (isCurrent) "(فعلی)" else ""}")
+            val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء", "صبح", "مغرب")
+            val current = PrayerUtils.computeHighlightPrayer(LocalTime.now(), currentData, order)
+            if (_currentPrayer.value != current) {
+                _currentPrayer.value = current
             }
-
-            // به‌روزرسانی prayerTimesData نیز
             prayerTimesData = currentData
-        } else {
-            Log.w("PrayerViewModel", "داده‌های نماز خالی است، به‌روزرسانی نماز فعلی انجام نشد")
-            Log.w("PrayerViewModel", "currentData size: ${currentData.size}")
-            Log.w("PrayerViewModel", "uiState: ${_uiState.value}")
         }
     }
 
@@ -136,63 +110,12 @@ class PrayerViewModel : ViewModel() {
             while (isActive) {
                 try {
                     updateCurrentPrayer()
-
-                    // محاسبه زمان تا نماز بعدی
-                    val delayUntilNext = calculateDelayUntilNextPrayer()
-
-                    // محاسبه بازه چک کردن دینامیک
-                    val checkInterval = if (delayUntilNext < 60000) 10000L else 60000L
-
-                    Log.d(
-                        "PrayerViewModel",
-                        "چک خودکار نماز فعلی - تا نماز بعدی: ${delayUntilNext / 1000} ثانیه, بازه چک: ${checkInterval / 1000} ثانیه"
-                    )
-
-                    delay(checkInterval)
+                    delay(60000L) // Check every minute
                 } catch (e: Exception) {
                     Log.e("PrayerViewModel", "خطا در حلقه بررسی نماز", e)
-                    delay(60000L) // در صورت خطا، 1 دقیقه صبر کن
+                    delay(60000L) // Wait a minute on error
                 }
             }
-            Log.d("PrayerViewModel", "حلقه بررسی نماز متوقف شد")
-        }
-    }
-
-    private fun calculateDelayUntilNextPrayer(): Long {
-        if (prayerTimesData.isEmpty()) return 60000L
-        try {
-            val currentTime = java.time.LocalTime.now()
-            val formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
-            val prayerOrder = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-            val prayerTimes = prayerOrder.mapNotNull { prayer ->
-                prayerTimesData[prayer]?.let { timeStr ->
-                    try {
-                        prayer to java.time.LocalTime.parse(timeStr, formatter)
-                    } catch (_: Exception) {
-                        null
-                    }
-                }
-            }
-
-            // پیدا کردن نزدیک‌ترین نماز بعدی
-            for ((_, time) in prayerTimes) {
-                if (currentTime < time) {
-                    val duration = java.time.Duration.between(currentTime, time)
-                    return duration.toMillis()
-                }
-            }
-
-            // اگر همه نمازهای امروز گذشت، تا فجر فردا
-            prayerTimes.firstOrNull()?.second?.let { fajrTime ->
-                val tomorrow = fajrTime.plusHours(24)
-                val duration = java.time.Duration.between(currentTime, tomorrow)
-                return duration.toMillis()
-            }
-
-            return 60000L // پیش‌فرض یک دقیقه
-        } catch (e: Exception) {
-            Log.e("PrayerViewModel", "خطا در محاسبه زمان تا نماز بعدی", e)
-            return 60000L
         }
     }
 
@@ -201,17 +124,14 @@ class PrayerViewModel : ViewModel() {
         context = null
     }
 
-    // توابع نمونه برای به‌روزرسانی StateFlow های جدید
-    fun loadUserNotes(@Suppress("UNUSED_PARAMETER")context: Context) { // اطمینان حاصل کنید که context به درستی مدیریت می‌شود
+    @Suppress("unused")
+    fun loadUserNotes(@Suppress("UNUSED_PARAMETER") context: Context) {
         viewModelScope.launch {
-            // در اینجا منطق خود برای بارگذاری یادداشت‌ها از دیتابیس یا فایل را پیاده‌سازی کنید
-            // مثال:
-            // val notes = NoteUtils.loadNotesFromStorage(context)
-            // _userNotes.value = notes
-            Log.d("PrayerViewModel", "loadUserNotes called - implementation pending")
+            // Business logic to load notes
         }
     }
 
+    @Suppress("unused")
     fun setViewMode(newMode: ViewMode) {
         _currentViewMode.value = newMode
     }

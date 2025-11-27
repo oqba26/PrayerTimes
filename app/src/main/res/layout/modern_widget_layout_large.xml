@@ -10,7 +10,7 @@
     android:gravity="center"
     android:background="@drawable/widget_background_light">
 
-    <!-- ساعت: TextView + ImageView (bitmap) -->
+    <!-- ساعت -->
     <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content">
@@ -39,7 +39,7 @@
         android:background="#BDBDBD"
         android:layout_marginVertical="8dp"/>
 
-    <!-- تاریخ شمسی -->
+    <!-- تاریخ‌ها -->
     <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content">
@@ -60,7 +60,6 @@
             android:scaleType="fitCenter"/>
     </FrameLayout>
 
-    <!-- قمری / میلادی -->
     <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -88,7 +87,7 @@
         android:background="#BDBDBD"
         android:layout_marginVertical="12dp"/>
 
-    <!-- اوقات نماز: fallback + bitmap -->
+    <!-- اوقات ۶ گانه -->
     <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content">
@@ -109,8 +108,28 @@
             android:scaleType="fitCenter"/>
     </FrameLayout>
 
-    <!-- دکمه‌ها: چپ=روز بعد | وسط=امروز | راست=روز قبل -->
-    <!-- ردیف دکمه‌ها: چپ=روز بعد | وسط=امروز | راست=روز قبل -->
+    <TextView
+        android:id="@+id/separator3_large"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- اوقات ۵ گانه -->
+    <FrameLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <ImageView
+            android:id="@+id/iv_prayer_times_5"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"/>
+    </FrameLayout>
+
+    <!-- دکمه‌ها -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -119,7 +138,6 @@
         android:layout_marginTop="8dp"
         android:layoutDirection="ltr">
 
-        <!-- چپ: روز بعد -->
         <ImageView
             android:id="@+id/iv_next_day"
             android:layout_width="wrap_content"
@@ -128,7 +146,6 @@
             android:scaleType="centerInside"
             android:contentDescription="روز بعد"/>
 
-        <!-- وسط: امروز (فضا محفوظ؛ حالت امروز = INVISIBLE) -->
         <ImageView
             android:id="@+id/btn_today"
             android:layout_width="wrap_content"
@@ -140,7 +157,6 @@
             android:visibility="invisible"
             android:contentDescription="بازگشت به امروز"/>
 
-        <!-- راست: روز قبل -->
         <ImageView
             android:id="@+id/iv_prev_day"
             android:layout_width="wrap_content"

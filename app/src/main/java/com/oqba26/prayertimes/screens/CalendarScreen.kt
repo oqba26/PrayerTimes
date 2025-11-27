@@ -9,23 +9,32 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,6 +45,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,6 +59,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -56,12 +68,15 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.oqba26.prayertimes.activities.AlarmActivity
 import com.oqba26.prayertimes.activities.NoteEditorActivity
 import com.oqba26.prayertimes.models.MultiDate
 import com.oqba26.prayertimes.models.UserNote
 import com.oqba26.prayertimes.screens.widgets.BottomBar
 import com.oqba26.prayertimes.screens.widgets.DayHeaderBar
+import com.oqba26.prayertimes.screens.widgets.GregorianDatePicker
+import com.oqba26.prayertimes.screens.widgets.HijriDatePicker
 import com.oqba26.prayertimes.screens.widgets.MonthCalendarView
 import com.oqba26.prayertimes.screens.widgets.NotesOverviewScreen
 import com.oqba26.prayertimes.screens.widgets.PrayerTimesList
@@ -69,18 +84,18 @@ import com.oqba26.prayertimes.screens.widgets.ShamsiDatePicker
 import com.oqba26.prayertimes.utils.DateUtils
 import com.oqba26.prayertimes.utils.HolidayUtils
 import com.oqba26.prayertimes.utils.NoteUtils
+import com.oqba26.prayertimes.viewmodels.CalendarType
+import com.oqba26.prayertimes.viewmodels.DateConverterViewModel
 import com.oqba26.prayertimes.viewmodels.PrayerViewModel
+import com.oqba26.prayertimes.viewmodels.SettingsViewModel
 import java.time.LocalDate
-import java.time.Period
 import java.time.LocalTime
+import java.time.Period
 
 val DarkThemePurpleBackground = Color(0xFF4F378B)
 val DarkThemeOnPurpleText = Color(0xFFEADDFF)
 
 enum class ViewMode { PRAYER_TIMES, NOTES }
-
-
-
 
 @Composable
 fun CalendarScreen(
@@ -92,6 +107,7 @@ fun CalendarScreen(
     onOpenAlarms: () -> Unit,
     isDarkThemeActive: Boolean,
     onToggleTheme: () -> Unit,
+    onShowDateConverter: () -> Unit,
     currentViewMode: ViewMode,
     onViewModeChange: (ViewMode) -> Unit,
     userNotesMap: Map<String, UserNote>,
@@ -99,11 +115,12 @@ fun CalendarScreen(
     onEditNoteRequest: (noteId: String, noteToEdit: UserNote) -> Unit,
     onDeleteNoteRequest: (noteId: String) -> Unit,
     usePersianNumbers: Boolean,
-    use24HourFormat: Boolean
+    use24HourFormat: Boolean,
+    useNumericDateFormatMain: Boolean,
+    onToggleDateView: () -> Unit
 ) {
     val context = LocalContext.current
 
-    // به‌روزرسانی هر دقیقه برای هایلایت کردن وقت بعدی
     val currentTime = remember { mutableStateOf(LocalTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -168,7 +185,7 @@ fun CalendarScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // تقویم + اشتراک‌گذاری سمت چپ
+                    // آیکون‌ها سمت چپ
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = {
                             if (currentDate.shamsi != today.shamsi) onDateChange(today) else showShamsiDatePicker = true
@@ -176,6 +193,14 @@ fun CalendarScreen(
                             Icon(
                                 imageVector = Icons.Filled.CalendarToday,
                                 contentDescription = "انتخاب تاریخ",
+                                tint = topColor
+                            )
+                        }
+
+                        IconButton(onClick = onShowDateConverter) {
+                            Icon(
+                                imageVector = Icons.Filled.SwapHoriz,
+                                contentDescription = "تبدیل تاریخ",
                                 tint = topColor
                             )
                         }
@@ -249,7 +274,8 @@ fun CalendarScreen(
                 onNextDay = { onDateChange(DateUtils.getNextDate(currentDate)) },
                 isDark = isDarkThemeActive,
                 usePersianNumbers = usePersianNumbers,
-                use24HourFormat = use24HourFormat
+                useNumericDateMain = useNumericDateFormatMain,
+                onToggleDateView = onToggleDateView
             )
 
             // محتوای اصلی
@@ -333,6 +359,7 @@ fun CalendarScreen(
 @Composable
 fun CalendarScreenEntryPoint(
     viewModel: PrayerViewModel,
+    settingsViewModel: SettingsViewModel, // اضافه شد
     onOpenSettings: () -> Unit,
     isDarkThemeActive: Boolean,
     onToggleTheme: () -> Unit,
@@ -345,12 +372,15 @@ fun CalendarScreenEntryPoint(
     }
     var currentDate by remember { mutableStateOf(DateUtils.getCurrentDate()) }
     val uiState = viewModel.uiState.collectAsState().value
+    val useNumericDateFormatMain by settingsViewModel.useNumericDateFormatMain.collectAsState()
     var currentViewMode by remember { mutableStateOf(ViewMode.PRAYER_TIMES) }
     var userNotesMapState by remember { mutableStateOf<Map<String, UserNote>>(emptyMap()) }
 
     var noteIdToDeleteDialog by remember { mutableStateOf<String?>(null) }
     var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
     var showXiaomiPermissionDialog by remember { mutableStateOf(false) }
+    var showDateConverter by remember { mutableStateOf(false) }
+    val dateConverterViewModel: DateConverterViewModel = viewModel()
 
     val prefs = remember { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
 
@@ -370,7 +400,6 @@ fun CalendarScreenEntryPoint(
                 showXiaomiPermissionDialog = false
                 prefs.edit { putBoolean("shown_xiaomi_dialog", true) }
                 try {
-                    // تلاش اول: مستقیم‌ترین Intent برای صفحه لیست مجوزها
                     val intent = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
                         setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.AppPermissionsEditor")
                         putExtra("extra_pkgname", context.packageName)
@@ -378,21 +407,18 @@ fun CalendarScreenEntryPoint(
                     context.startActivity(intent)
                 } catch (_: Exception) {
                     try {
-                        // تلاش دوم: Fallback به Intent قبلی که صفحه «سایر مجوزها» را نشان می‌داد
                         val intent = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
                              setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
                             putExtra("extra_pkgname", context.packageName)
                         }
                         context.startActivity(intent)
                     } catch (_: Exception) {
-                        // تلاش سوم: Fallback نهایی به صفحه استاندارد اندروید
                         try {
                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                                 data = Uri.fromParts("package", context.packageName, null)
                             }
                             context.startActivity(intent)
                         } catch (_: Exception) {
-                            // اگر هیچ‌کدام کار نکرد، حداقل یک Toast نشان بده
                             Toast.makeText(context, "لطفاً به صورت دستی به تنظیمات برنامه بروید", Toast.LENGTH_LONG).show()
                         }
                     }
@@ -511,6 +537,7 @@ fun CalendarScreenEntryPoint(
         onOpenAlarms = { context.startActivity(Intent(context, AlarmActivity::class.java)) },
         isDarkThemeActive = isDarkThemeActive,
         onToggleTheme = onToggleTheme,
+        onShowDateConverter = { showDateConverter = true },
         currentViewMode = currentViewMode,
         onViewModeChange = { newMode -> currentViewMode = newMode },
         userNotesMap = userNotesMapState,
@@ -543,8 +570,253 @@ fun CalendarScreenEntryPoint(
             noteIdToDeleteDialog = noteKey
          },
         usePersianNumbers = usePersianNumbers,
-        use24HourFormat = use24HourFormat
+        use24HourFormat = use24HourFormat,
+        useNumericDateFormatMain = useNumericDateFormatMain, // اضافه شد
+        onToggleDateView = { settingsViewModel.updateUseNumericDateFormatMain(!useNumericDateFormatMain) } // اضافه شد
     )
+
+    if (showDateConverter) {
+        DateConverterScreen(
+            isDark = isDarkThemeActive,
+            onBackClick = { showDateConverter = false },
+            viewModel = dateConverterViewModel,
+            usePersianNumbers = usePersianNumbers
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateConverterScreen(
+    isDark: Boolean,
+    onBackClick: () -> Unit,
+    viewModel: DateConverterViewModel = viewModel(),
+    usePersianNumbers: Boolean
+) {
+    BackHandler {
+        onBackClick()
+    }
+
+    val uiState by viewModel.uiState.collectAsState()
+
+    val headerColor = if (isDark) DarkThemePurpleBackground else Color(0xFF0E7490)
+    val headerTextColor = if (isDark) DarkThemeOnPurpleText else Color.White
+
+    // Date pickers
+    if (uiState.showDatePicker) {
+        when (uiState.sourceCalendar) {
+            CalendarType.SHAMSI -> ShamsiDatePicker(
+                initialDate = uiState.inputDate,
+                onDateSelected = viewModel::onDateSelected,
+                onDismiss = viewModel::hideDatePicker,
+                isDarkTheme = isDark,
+                usePersianNumbers = usePersianNumbers,
+                use24HourFormat = true
+            )
+
+            CalendarType.GREGORIAN -> GregorianDatePicker(
+                initialDate = uiState.inputDate,
+                onDateSelected = viewModel::onDateSelected,
+                onDismiss = viewModel::hideDatePicker,
+                isDarkTheme = isDark,
+                usePersianNumbers = usePersianNumbers
+            )
+
+            CalendarType.HIJRI -> HijriDatePicker(
+                initialDate = uiState.inputDate,
+                onDateSelected = viewModel::onDateSelected,
+                onDismiss = viewModel::hideDatePicker,
+                isDarkTheme = isDark,
+                usePersianNumbers = usePersianNumbers
+            )
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(headerColor)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .height(56.dp)
+                        .padding(horizontal = 4.dp)
+                ) {
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "بازگشت",
+                            tint = headerTextColor
+                        )
+                    }
+
+                    Text(
+                        text = "تبدیل تاریخ",
+                        color = headerTextColor,
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            val calendarTypes = CalendarType.entries.toTypedArray()
+            val selectedTabIndex = calendarTypes.indexOf(uiState.sourceCalendar)
+
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                calendarTypes.forEachIndexed { index, calendarType ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { viewModel.setSourceCalendar(calendarType) },
+                        text = {
+                            Text(
+                                when (calendarType) {
+                                    CalendarType.SHAMSI -> "شمسی"
+                                    CalendarType.HIJRI -> "قمری"
+                                    CalendarType.GREGORIAN -> "میلادی"
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                text = ": تاریخ ورودی را انتخاب کنید",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { viewModel.showDatePicker() },
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                val dateLabel = when (uiState.sourceCalendar) {
+                    CalendarType.SHAMSI ->
+                        DateUtils.formatShamsiLong(uiState.inputDate, usePersianNumbers)
+
+                    CalendarType.HIJRI ->
+                        DateUtils.formatHijriLong(uiState.inputDate, usePersianNumbers)
+
+                    CalendarType.GREGORIAN ->
+                        DateUtils.formatGregorianLong(uiState.inputDate, usePersianNumbers)
+                }
+
+                Text(
+                    text = dateLabel,
+                    modifier = Modifier.padding(16.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            uiState.error?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // اینجا جهت نمایش را فقط برای کارت نتایج، به‌صورت ثابت RTL می‌کنیم
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                uiState.result?.let { resultDate ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // تیتر نتایج – در RTL، Start یعنی راست
+                        Text(
+                            text = "نتایج تبدیل : ",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Start
+                        )
+
+                        if (uiState.sourceCalendar != CalendarType.SHAMSI) {
+                            ResultRow(
+                                label = "شمسی : ",
+                                value = DateUtils.formatShamsiLong(resultDate, usePersianNumbers)
+                            )
+                        }
+
+                        if (uiState.sourceCalendar != CalendarType.HIJRI) {
+                            ResultRow(
+                                label = "قمری : ",
+                                value = DateUtils.formatHijriLong(resultDate, usePersianNumbers)
+                            )
+                        }
+
+                        if (uiState.sourceCalendar != CalendarType.GREGORIAN) {
+                            ResultRow(
+                                label = "میلادی : ",
+                                value = DateUtils.formatGregorianLong(resultDate, usePersianNumbers)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // لیبل در سمت راست (در RTL)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        // تاریخ در سمت چپ
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -794,5 +1066,4 @@ private fun buildRelativeDiffLabel(
     val pDI = '⁩'
     val nBSP = ' '
     return "${rLI}${parts.joinToString(" و ")}$nBSP$suffix$pDI"
-
 }

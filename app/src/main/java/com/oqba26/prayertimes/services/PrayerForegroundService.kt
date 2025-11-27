@@ -11,8 +11,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -25,10 +23,10 @@ import android.widget.RemoteViews
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.content.res.ResourcesCompat
-import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.graphics.toColorInt
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.oqba26.prayertimes.R
 import com.oqba26.prayertimes.adhan.AdhanScheduler
@@ -39,6 +37,7 @@ import com.oqba26.prayertimes.widget.LargeModernWidgetProvider
 import com.oqba26.prayertimes.widget.ModernWidgetProvider
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import java.time.LocalTime
 import java.util.*
 
 class PrayerForegroundService : Service() {
@@ -54,6 +53,7 @@ class PrayerForegroundService : Service() {
         const val ACTION_PREV = "PREVIOUS_DAY"
         const val ACTION_NEXT = "NEXT_DAY"
         const val ACTION_TODAY = "TODAY"
+        const val ACTION_TOGGLE_DATE_FORMAT = "TOGGLE_DATE_FORMAT"
         const val ACTION_MIDNIGHT_UPDATE = "MIDNIGHT_UPDATE"
 
         private var isRunning = false
@@ -98,7 +98,6 @@ class PrayerForegroundService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == Intent.ACTION_TIME_TICK) {
                 scope.launch {
-                    // Send a standard update to widgets every minute to update the time
                     updateAllWidgets(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
                 }
             }
@@ -113,7 +112,6 @@ class PrayerForegroundService : Service() {
         isForegroundStarted = false
         clearIconCache()
         NotificationService.createNotificationChannels(this)
-        // Register the receiver for time ticks to update the widget clock
         registerReceiver(timeTickReceiver, IntentFilter(Intent.ACTION_TIME_TICK))
     }
 
@@ -125,7 +123,6 @@ class PrayerForegroundService : Service() {
         isForegroundStarted = false
         clearIconCache()
         PrayerAlarmManager.cancelMidnightAlarm(this)
-        // Unregister the time tick receiver
         unregisterReceiver(timeTickReceiver)
         Log.d(TAG, "Service Destroyed")
     }
@@ -157,6 +154,7 @@ class PrayerForegroundService : Service() {
                     ACTION_PREV -> changeDate(-1)
                     ACTION_NEXT -> changeDate(1)
                     ACTION_TODAY -> changeDate(0)
+                    ACTION_TOGGLE_DATE_FORMAT -> toggleDateFormat()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "FATAL: Unhandled exception in onStartCommand's coroutine", e)
@@ -193,8 +191,6 @@ class PrayerForegroundService : Service() {
     private suspend fun handleMidnightUpdate() {
         Log.d(TAG, "Handling Midnight Update...")
         notifSelectedDate = DateUtils.getCurrentDate()
-        PrayerUtils.loadDetailedPrayerTimes(this, notifSelectedDate!!)
-        // Send our custom, allowed action to widgets to notify them of the date change
         updateAllWidgets(ModernWidgetProvider.ACTION_DATE_CHANGED_BY_SERVICE)
         updateNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -223,8 +219,27 @@ class PrayerForegroundService : Service() {
 
     private suspend fun updateNotification() {
         val date = notifSelectedDate ?: DateUtils.getCurrentDate()
-        val times = PrayerUtils.loadDetailedPrayerTimes(this, date)
-        val notification = createPrayerNotification(date, times)
+        val now = LocalTime.now()
+
+        val (generalTimes, specificTimes) = PrayerUtils.loadSeparatedPrayerTimes(this, date)
+        val mergedTimes = generalTimes + specificTimes
+
+        if (generalTimes.isEmpty() || specificTimes.isEmpty()) {
+            Log.e(TAG, "One or both prayer time maps are empty for $date. Aborting notification update.")
+            showErrorNotification("خطا در بارگذاری اوقات شرعی", Exception("اطلاعات برای تاریخ $date یافت نشد."))
+            return
+        }
+
+        val generalHighlight = PrayerUtils.computeHighlightPrayer(now, mergedTimes, listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء"))
+        val specificHighlight = PrayerUtils.computeHighlightPrayer(now, mergedTimes, listOf("صبح", "ظهر", "عصر", "مغرب", "عشاء"))
+
+        val notification = createPrayerNotification(
+            date,
+            generalTimes,
+            specificTimes,
+            generalHighlight,
+            specificHighlight
+        )
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(NOTIFICATION_ID, notification)
     }
@@ -245,6 +260,14 @@ class PrayerForegroundService : Service() {
         updateNotification()
     }
 
+    private suspend fun toggleDateFormat() {
+        val key = booleanPreferencesKey("use_numeric_date_format_notification")
+        dataStore.edit { settings ->
+            settings[key] = !(settings[key] ?: false)
+        }
+        updateNotification()
+    }
+
     @SuppressLint("ScheduleExactAlarm")
     private suspend fun scheduleAlarms() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -258,8 +281,7 @@ class PrayerForegroundService : Service() {
 
     private fun pending(
         req: Int,
-        cls: Class<*>,
-        act: String? = null,
+        cls: Class<*>,        act: String? = null,
         extraBlock: (Intent.() -> Unit)? = null
     ): PendingIntent {
         val i = Intent(this, cls).apply { action = act }
@@ -308,172 +330,161 @@ class PrayerForegroundService : Service() {
         return min
     }
 
-    private fun createPrayerTimesBitmap(
-        times: Map<String, String>,
-        current: String?,
-        baseColor: Int,
-        highlightColor: Int,
-        tf: Typeface,
-        usePersian: Boolean,
-        use24h: Boolean
-    ): Bitmap {
-        val prayerOrder = listOf(
-            "نماز عشاء" to "عشاء",
-            "نماز مغرب" to "مغرب",
-            "نماز عصر" to "عصر",
-            "نماز ظهر" to "ظهر",
-            "نماز صبح" to "صبح"
-        )
-        val w = dp(this, 320)
-        val h = dp(this, 60)
-        val bmp = createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = tf
-            textAlign = Paint.Align.CENTER
-            textSize = sp(14f)
-        }
-        val colW = w / prayerOrder.size
-        val offset = (p.descent() - p.ascent()) / 2 - p.descent()
-        prayerOrder.forEachIndexed { i, (displayName, internalName) ->
-            val t = DateUtils.formatDisplayTime(
-                times[internalName] ?: "--:--",
-                use24h,
-                usePersian
-            )
-            val isCurrent = displayName == "نماز $current"
-            p.color = if (isCurrent) highlightColor else baseColor
-            p.isFakeBoldText = isCurrent
-            val x = (i * colW) + (colW / 2f)
-            c.drawText(displayName, x, h / 2f - (h / 4f) + offset, p)
-            c.drawText(t, x, h / 2f + (h / 4f) + offset, p)
-        }
-        return bmp
-    }
-
     @SuppressLint("RestrictedApi")
     private suspend fun createPrayerNotification(
         date: MultiDate,
-        times: Map<String, String>
+        generalTimes: Map<String, String>,
+        specificTimes: Map<String, String>,
+        generalHighlight: String?,
+        specificHighlight: String?
     ): Notification {
         val settings = dataStore.data.first()
         val usePersian = settings[booleanPreferencesKey("use_persian_numbers")] ?: true
+        val useNumericDate = settings[booleanPreferencesKey("use_numeric_date_format_notification")] ?: false
         val use24h = settings[booleanPreferencesKey("use_24_hour_format")] ?: true
         val fontId = settings[stringPreferencesKey("fontId")] ?: "estedad"
         val dark = settings[booleanPreferencesKey("is_dark_theme")] ?: false
 
         val tf = font(fontId)
 
-        val (prim, sec, bgRes) = if (dark)
-            Triple(Color.WHITE, Color.LTGRAY, R.drawable.widget_background_dark)
-        else
-            Triple(Color.BLACK, Color.DKGRAY, R.drawable.widget_background_light)
+        val primaryTextColor: Int
+        val secondaryTextColor: Int
+        val prayerTimeColor: Int
+        val prayerHighlightColor: Int
+        val persianDateColor: Int
 
-        val highlightPrayer =
-            PrayerUtils.getCurrentPrayerForHighlight(times, java.time.LocalTime.now())
-        val shamsi =
-            "${DateUtils.getWeekDayName(date)} ${DateUtils.formatShamsiLong(date, usePersian)}"
-        val other =
-            "${DateUtils.formatHijriLong(date, usePersian)} | ${DateUtils.formatGregorianLong(date, usePersian)}"
+        if (dark) {
+            primaryTextColor = Color.WHITE
+            secondaryTextColor = Color.LTGRAY
+            prayerTimeColor = "#80DEEA".toColorInt()
+            prayerHighlightColor = "#FFF59D".toColorInt()
+            persianDateColor = prayerTimeColor
+        } else {
+            primaryTextColor = Color.BLACK
+            secondaryTextColor = Color.DKGRAY
+            prayerTimeColor = "#0D47A1".toColorInt()
+            prayerHighlightColor = "#2E7D32".toColorInt()
+            persianDateColor = prayerTimeColor
+        }
+
+        val bgRes = if (dark) R.drawable.widget_background_dark else R.drawable.widget_background_light
+
+        val weekDay = DateUtils.getWeekDayName(date)
+        val shamsiStr = if (useNumericDate) DateUtils.formatShamsiShort(date, usePersian) else DateUtils.formatShamsiLong(date, usePersian)
+        val hijriStr = if (useNumericDate) DateUtils.formatHijriShort(date, usePersian) else DateUtils.formatHijriLong(date, usePersian)
+        val gregStr = if (useNumericDate) DateUtils.formatGregorianShort(date, usePersian) else DateUtils.formatGregorianLong(date, usePersian)
+
+        val shamsi = "$weekDay $shamsiStr"
+        val other = "$gregStr | $hijriStr"
         val w = maxWidth()
 
-        val collapsed = RemoteViews(packageName, R.layout.notification_collapsed).apply {
-            setInt(R.id.collapsed_root_layout, "setBackgroundResource", bgRes)
-            setViewVisibility(R.id.tv_shamsi_full, View.GONE)
-            setViewVisibility(R.id.tv_other_dates_collapsed, View.GONE)
+        val toggleDateFormatIntent = pending(
+            ACTION_TOGGLE_DATE_FORMAT.hashCode(),
+            PrayerForegroundService::class.java,
+            ACTION_TOGGLE_DATE_FORMAT
+        )
 
-            val collapsedShamsiSP = findOptimalSP(tf, w, shamsi, pref = 20f, min = 16f)
-            setImageViewBitmap(
-                R.id.iv_title_collapsed,
-                textBitmap(this@PrayerForegroundService, shamsi, tf, collapsedShamsiSP, prim, w)
-            )
-            setViewVisibility(R.id.iv_title_collapsed, View.VISIBLE)
+        val collapsed = RemoteViews(packageName, R.layout.notification_collapsed)
+        collapsed.setInt(R.id.collapsed_root_layout, "setBackgroundResource", bgRes)
 
-            setImageViewBitmap(
-                R.id.iv_other_collapsed,
-                textBitmap(this@PrayerForegroundService, other, tf, 16f, sec, w)
-            )
-            setViewVisibility(R.id.iv_other_collapsed, View.VISIBLE)
-        }
+        val collapsedShamsiSP = findOptimalSP(tf, w, shamsi, pref = 18f)
+        collapsed.setImageViewBitmap(
+            R.id.iv_title_collapsed,
+            textBitmap(this, shamsi, tf, collapsedShamsiSP, persianDateColor, w)
+        )
+        collapsed.setViewVisibility(R.id.iv_title_collapsed, View.VISIBLE)
+        collapsed.setOnClickPendingIntent(R.id.iv_title_collapsed, toggleDateFormatIntent)
 
-        val exp = RemoteViews(packageName, R.layout.notification_expanded).apply {
-            setInt(R.id.expanded_root_layout, "setBackgroundResource", bgRes)
-            val expandedShamsiSP = findOptimalSP(tf, w, shamsi, pref = 20f, min = 16f)
-            val expandedOtherSP = findOptimalSP(tf, w, other, pref = 16f, min = 12f)
-            setImageViewBitmap(
-                R.id.iv_title,
-                textBitmap(this@PrayerForegroundService, shamsi, tf, expandedShamsiSP, prim, w)
-            )
-            setViewVisibility(R.id.iv_title, View.VISIBLE)
 
-            setImageViewBitmap(
-                R.id.iv_other,
-                textBitmap(this@PrayerForegroundService, other, tf, expandedOtherSP, sec, w)
-            )
-            setViewVisibility(R.id.iv_other, View.VISIBLE)
+        collapsed.setImageViewBitmap(
+            R.id.iv_other_collapsed,
+            textBitmap(this, other, tf, 14f, secondaryTextColor, w)
+        )
+        collapsed.setViewVisibility(R.id.iv_other_collapsed, View.VISIBLE)
+        collapsed.setOnClickPendingIntent(R.id.iv_other_collapsed, toggleDateFormatIntent)
 
-            val prayBmp = createPrayerTimesBitmap(
-                times,
-                highlightPrayer,
-                if (dark) "#80DEEA".toColorInt() else "#0D47A1".toColorInt(),
-                if (dark) "#FFF59D".toColorInt() else "#2E7D32".toColorInt(),
-                tf,
-                usePersian,
-                use24h
-            )
-            setImageViewBitmap(R.id.iv_prayer_times, prayBmp)
-            setViewVisibility(R.id.iv_prayer_times, View.VISIBLE)
 
-            val navCol = if (dark) "#78909C".toColorInt() else "#546E7A".toColorInt()
-            val todayCol = if (dark) "#64B5F6".toColorInt() else "#1976D2".toColorInt()
-            setImageViewBitmap(
-                R.id.iv_prev_day_exp,
-                pillButtonBitmap(this@PrayerForegroundService, "روز قبل", tf, navCol, 16, Color.WHITE)
-            )
-            setImageViewBitmap(
-                R.id.iv_next_day_exp,
-                pillButtonBitmap(this@PrayerForegroundService, "روز بعد", tf, navCol, 16, Color.WHITE)
-            )
-            setOnClickPendingIntent(
-                R.id.iv_prev_day_exp,
-                pending(ACTION_PREV.hashCode(), PrayerForegroundService::class.java, ACTION_PREV)
-            )
-            setOnClickPendingIntent(
-                R.id.iv_next_day_exp,
-                pending(ACTION_NEXT.hashCode(), PrayerForegroundService::class.java, ACTION_NEXT)
-            )
+        val exp = RemoteViews(packageName, R.layout.notification_expanded)
+        exp.setInt(R.id.expanded_root_layout, "setBackgroundResource", bgRes)
+        val expandedShamsiSP = findOptimalSP(tf, w, shamsi, pref = 20f)
+        val expandedOtherSP = findOptimalSP(tf, w, other, pref = 16f)
+        exp.setImageViewBitmap(
+            R.id.iv_title,
+            textBitmap(this, shamsi, tf, expandedShamsiSP, persianDateColor, w)
+        )
+        exp.setViewVisibility(R.id.iv_title, View.VISIBLE)
+        exp.setOnClickPendingIntent(R.id.iv_title, toggleDateFormatIntent)
 
-            val showToday =
-                notifSelectedDate?.let { it.shamsi != DateUtils.getCurrentDate().shamsi } ?: false
-            if (showToday) {
-                setImageViewBitmap(
-                    R.id.btn_today,
-                    pillButtonBitmap(
-                        this@PrayerForegroundService,
-                        "بازگشت به امروز",
-                        tf,
-                        todayCol,
-                        20,
-                        Color.WHITE
-                    )
-                )
-                setOnClickPendingIntent(
-                    R.id.btn_today,
-                    pending(ACTION_TODAY.hashCode(), PrayerForegroundService::class.java, ACTION_TODAY)
-                )
-            } else {
-                val placeholder = pillButtonBitmap(
-                    this@PrayerForegroundService,
-                    "بازگشت به امروز",
-                    tf,
-                    Color.TRANSPARENT,
-                    20,
-                    Color.TRANSPARENT
-                )
-                setImageViewBitmap(R.id.btn_today, placeholder)
-            }
-            setViewVisibility(R.id.btn_today, if (showToday) View.VISIBLE else View.INVISIBLE)
-        }
+        exp.setImageViewBitmap(
+            R.id.iv_other,
+            textBitmap(this, other, tf, expandedOtherSP, secondaryTextColor, w)
+        )
+        exp.setViewVisibility(R.id.iv_other, View.VISIBLE)
+        exp.setOnClickPendingIntent(R.id.iv_other, toggleDateFormatIntent)
+
+        val generalBmp = createPrayerTimesBitmapWithHighlight(
+            context = this,
+            prayerTimes = generalTimes,
+            currentPrayerName = generalHighlight,
+            tf = tf,
+            maxWidthPx = w,
+            baseColor = prayerTimeColor,
+            highlightColor = prayerHighlightColor,
+            use24HourFormat = use24h,
+            usePersianNumbers = usePersian
+        )
+        exp.setImageViewBitmap(R.id.iv_general_times, generalBmp)
+        exp.setViewVisibility(R.id.iv_general_times, View.VISIBLE)
+
+        exp.setViewVisibility(R.id.divider1, View.VISIBLE)
+
+        val prayBmp = createFivePrayerTimesBitmap(
+            context = this,
+            prayerTimes = specificTimes,
+            currentPrayerName = specificHighlight,
+            tf = tf,
+            maxWidthPx = w,
+            baseColor = prayerTimeColor,
+            highlightColor = prayerHighlightColor,
+            use24HourFormat = use24h,
+            usePersianNumbers = usePersian
+        )
+        exp.setImageViewBitmap(R.id.iv_prayer_times, prayBmp)
+        exp.setViewVisibility(R.id.iv_prayer_times, View.VISIBLE)
+
+        val navCol = if (dark) "#78909C".toColorInt() else "#546E7A".toColorInt()
+        val todayCol = if (dark) "#64B5F6".toColorInt() else "#1976D2".toColorInt()
+        val navTextColor = "#FFFFFF".toColorInt()
+
+        exp.setImageViewBitmap(
+            R.id.iv_prev_day_exp,
+            pillButtonBitmap(this, "روز قبل", tf, navCol, 16, navTextColor)
+        )
+        exp.setImageViewBitmap(
+            R.id.iv_next_day_exp,
+            pillButtonBitmap(this, "روز بعد", tf, navCol, 16, navTextColor)
+        )
+
+        exp.setImageViewBitmap(
+            R.id.btn_today,
+            pillButtonBitmap(this, "بازگشت به امروز", tf, todayCol, 20, navTextColor)
+        )
+
+        exp.setOnClickPendingIntent(
+            R.id.iv_prev_day_exp,
+            pending(ACTION_PREV.hashCode(), PrayerForegroundService::class.java, ACTION_PREV)
+        )
+        exp.setOnClickPendingIntent(
+            R.id.iv_next_day_exp,
+            pending(ACTION_NEXT.hashCode(), PrayerForegroundService::class.java, ACTION_NEXT)
+        )
+        exp.setOnClickPendingIntent(
+            R.id.btn_today,
+            pending(ACTION_TODAY.hashCode(), PrayerForegroundService::class.java, ACTION_TODAY)
+        )
+
+        val showToday = notifSelectedDate?.let { it.shamsi != DateUtils.getCurrentDate().shamsi } ?: false
+        exp.setViewVisibility(R.id.btn_today, if (showToday) View.VISIBLE else View.INVISIBLE)
 
         val builder = NotificationCompat.Builder(this, NotificationService.DAILY_CHANNEL_ID)
             .setCustomContentView(collapsed)
@@ -495,13 +506,13 @@ class PrayerForegroundService : Service() {
     }
 
     private var cachedIconDay = -1
-    private var cachedIconColor = Color.BLACK
+    private var cachedIconColor = "#000000".toColorInt()
     private var cachedIconTf: Typeface? = null
     private var cachedSmallIcon: IconCompat? = null
 
     private fun clearIconCache() {
         cachedIconDay = -1
-        cachedIconColor = Color.BLACK
+        cachedIconColor = "#000000".toColorInt()
         cachedIconTf = null
         cachedSmallIcon = null
     }

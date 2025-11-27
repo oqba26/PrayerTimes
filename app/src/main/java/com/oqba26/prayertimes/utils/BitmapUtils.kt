@@ -169,6 +169,72 @@ fun createPrayerTimesBitmapWithHighlight(
     return bmp
 }
 
+fun createFivePrayerTimesBitmap(
+    context: Context,
+    prayerTimes: Map<String, String>,
+    currentPrayerName: String?,
+    tf: Typeface,
+    maxWidthPx: Int,
+    baseColor: Int,
+    highlightColor: Int,
+    use24HourFormat: Boolean,
+    usePersianNumbers: Boolean
+): Bitmap {
+    val sp = 14f
+    fun sp2px(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, v, context.resources.displayMetrics)
+
+    val normalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = baseColor
+        textAlign = Paint.Align.CENTER
+        textSize = sp2px(sp)
+        typeface = tf
+    }
+    val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = highlightColor
+        textAlign = Paint.Align.CENTER
+        textSize = sp2px(sp)
+        typeface = Typeface.create(tf, Typeface.BOLD)
+    }
+
+    val prayerOrder = listOf(
+        "نماز صبح" to "صبح",
+        "نماز ظهر" to "ظهر",
+        "نماز عصر" to "عصر",
+        "نماز مغرب" to "مغرب",
+        "نماز عشاء" to "عشاء"
+    )
+
+    val h = dp(context, 60)
+    val safeMaxWidthPx = maxWidthPx.coerceAtLeast(1)
+    val bmp = createBitmap(safeMaxWidthPx, h, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+    canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+
+    val colW = safeMaxWidthPx.toFloat() / prayerOrder.size
+    val offset = (normalPaint.descent() - normalPaint.ascent()) / 2 - normalPaint.descent()
+
+    prayerOrder.reversed().forEachIndexed { i, (displayName, internalName) ->
+        val timeText = DateUtils.formatDisplayTime(
+            prayerTimes[internalName] ?: "--:--",
+            use24HourFormat,
+            usePersianNumbers
+        )
+
+        val isCurrent = internalName == currentPrayerName
+        val paintToUse = if (isCurrent) highlightPaint else normalPaint
+
+        val centerX = (i * colW) + (colW / 2f)
+
+        // Draw display name
+        canvas.drawText(displayName, centerX, h / 2f - (h / 4f) + offset, paintToUse)
+
+        // Draw time
+        canvas.drawText(timeText, centerX, h / 2f + (h / 4f) + offset, paintToUse)
+    }
+
+    return bmp
+}
+
 fun pillButtonBitmap(
     context: Context,
     text: String,

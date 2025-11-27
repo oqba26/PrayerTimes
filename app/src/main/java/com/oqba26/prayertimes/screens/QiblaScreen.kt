@@ -7,7 +7,10 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.hardware.Sensor
+import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.location.Location
@@ -17,7 +20,12 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -41,31 +49,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.oqba26.prayertimes.utils.QiblaUtils
 import kotlinx.coroutines.delay
-import java.util.Locale
 import kotlin.math.cos
-import kotlin.math.min
 import kotlin.math.sin
 
-// رنگ‌های هدر، هماهنگ با بقیه صفحات
+
 private val QTopBarLightColor = Color(0xFF0E7490)
 private val QTopBarDarkColor = Color(0xFF4F378B)
 private val QOnTopBarLightColor = Color.White
 private val QOnTopBarDarkColor = Color(0xFFEADDFF)
 
-/**
- * صفحه قبله‌نما
- */
+
 @Composable
 fun QiblaScreen(
     isDarkThemeActive: Boolean,
@@ -74,29 +80,24 @@ fun QiblaScreen(
     val context = LocalContext.current
     val activity = context as? Activity
 
-    // وضعیت مجوز مکان به‌صورت state واقعی
     var hasLocationPermission by remember { mutableStateOf(hasLocation(context)) }
     var isLocationOn by remember { mutableStateOf(isLocationServiceEnabled(context)) }
     var userLocation by remember { mutableStateOf<Location?>(null) }
     var qiblaBearing by remember { mutableStateOf<Float?>(null) }
-    var azimuth by remember { mutableFloatStateOf(0f) } // زاویه گوشی نسبت به شمال (درجه)
+    var azimuth by remember { mutableFloatStateOf(0f) }
 
-    // لانچر درخواست مجوز مکان
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        // اگر هر کدام از مجوزها داده شد، true
         hasLocationPermission = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 result[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
                 hasLocation(context)
     }
 
-    // فقط یک بار در شروع، وضعیت مکان را چک کن
     LaunchedEffect(Unit) {
         isLocationOn = isLocationServiceEnabled(context)
     }
 
-    // هر چند ثانیه، وضعیت روشن بودن مکان را به‌روزرسانی کن
     LaunchedEffect(Unit) {
         while (true) {
             isLocationOn = isLocationServiceEnabled(context)
@@ -104,7 +105,6 @@ fun QiblaScreen(
         }
     }
 
-    // گرفتن آخرین موقعیت و محاسبه زاویه قبله (فقط اگر مجوز و مکان فعال باشد)
     LaunchedEffect(hasLocationPermission, isLocationOn) {
         if (hasLocationPermission && isLocationOn) {
             getCurrentLocation(context) { location ->
@@ -118,7 +118,6 @@ fun QiblaScreen(
         }
     }
 
-    // سنسور جهت: Rotation Vector یا Accelerometer+MagneticField به عنوان fallback
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
@@ -128,93 +127,56 @@ fun QiblaScreen(
         val accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val magSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
-        if (rotationSensor == null && (accelSensor == null || magSensor == null)) {
-            // هیچ ترکیب مفیدی موجود نیست
-            onDispose { }
-        } else {
-            val listener = object : SensorEventListener {
-                private val rotationMatrix = FloatArray(9)
-                private val orientation = FloatArray(3)
-                private val accelValues = FloatArray(3)
-                private val magValues = FloatArray(3)
-                private var hasAccel = false
-                private var hasMag = false
+        val listener = object : SensorEventListener {
+            private val rotationMatrix = FloatArray(9)
+            private val orientation = FloatArray(3)
+            private val accelValues = FloatArray(3)
+            private val magValues = FloatArray(3)
+            private var hasAccel = false
+            private var hasMag = false
 
-                override fun onSensorChanged(event: android.hardware.SensorEvent) {
-                    when (event.sensor.type) {
-                        Sensor.TYPE_ROTATION_VECTOR -> {
-                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                            SensorManager.getOrientation(rotationMatrix, orientation)
-                            val azimuthRad = orientation[0].toDouble()
-                            val azimuthDeg = (Math.toDegrees(azimuthRad) + 360.0) % 360.0
-                            azimuth = azimuthDeg.toFloat()
-                        }
-
-                        Sensor.TYPE_ACCELEROMETER -> {
-                            System.arraycopy(event.values, 0, accelValues, 0, accelValues.size)
-                            hasAccel = true
-                            if (hasMag) {
-                                if (SensorManager.getRotationMatrix(
-                                        rotationMatrix,
-                                        null,
-                                        accelValues,
-                                        magValues
-                                    )
-                                ) {
-                                    SensorManager.getOrientation(rotationMatrix, orientation)
-                                    val azimuthRad = orientation[0].toDouble()
-                                    val azimuthDeg = (Math.toDegrees(azimuthRad) + 360.0) % 360.0
-                                    azimuth = azimuthDeg.toFloat()
-                                }
-                            }
-                        }
-
-                        Sensor.TYPE_MAGNETIC_FIELD -> {
-                            System.arraycopy(event.values, 0, magValues, 0, magValues.size)
-                            hasMag = true
-                            if (hasAccel) {
-                                if (SensorManager.getRotationMatrix(
-                                        rotationMatrix,
-                                        null,
-                                        accelValues,
-                                        magValues
-                                    )
-                                ) {
-                                    SensorManager.getOrientation(rotationMatrix, orientation)
-                                    val azimuthRad = orientation[0].toDouble()
-                                    val azimuthDeg = (Math.toDegrees(azimuthRad) + 360.0) % 360.0
-                                    azimuth = azimuthDeg.toFloat()
-                                }
-                            }
-                        }
+            override fun onSensorChanged(event: SensorEvent) {
+                when (event.sensor.type) {
+                    Sensor.TYPE_ROTATION_VECTOR -> {
+                        SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                        SensorManager.getOrientation(rotationMatrix, orientation)
+                        val azimuthRad = orientation[0].toDouble()
+                        azimuth = ((Math.toDegrees(azimuthRad) + 360) % 360).toFloat()
+                    }
+                    Sensor.TYPE_ACCELEROMETER -> {
+                        System.arraycopy(event.values, 0, accelValues, 0, accelValues.size)
+                        hasAccel = true
+                    }
+                    Sensor.TYPE_MAGNETIC_FIELD -> {
+                        System.arraycopy(event.values, 0, magValues, 0, magValues.size)
+                        hasMag = true
                     }
                 }
 
-                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+                if (rotationSensor == null && hasAccel && hasMag) {
+                    val rotationMatrix = FloatArray(9)
+                    if (SensorManager.getRotationMatrix(rotationMatrix, null, accelValues, magValues)) {
+                        val orientation = FloatArray(3)
+                        SensorManager.getOrientation(rotationMatrix, orientation)
+                        val azimuthRad = orientation[0].toDouble()
+                        azimuth = ((Math.toDegrees(azimuthRad) + 360) % 360).toFloat()
+                    }
+                }
             }
 
-            if (rotationSensor != null) {
-                sensorManager.registerListener(
-                    listener,
-                    rotationSensor,
-                    SensorManager.SENSOR_DELAY_UI
-                )
-            } else {
-                sensorManager.registerListener(
-                    listener,
-                    accelSensor,
-                    SensorManager.SENSOR_DELAY_UI
-                )
-                sensorManager.registerListener(
-                    listener,
-                    magSensor,
-                    SensorManager.SENSOR_DELAY_UI
-                )
-            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
 
-            onDispose {
-                sensorManager.unregisterListener(listener)
-            }
+        val usedSensor = rotationSensor ?: accelSensor
+        val samplingPeriod = SensorManager.SENSOR_DELAY_UI
+
+        sensorManager.registerListener(listener, usedSensor, samplingPeriod)
+        if (rotationSensor == null) {
+            sensorManager.registerListener(listener, magSensor, samplingPeriod)
+        }
+
+        onDispose {
+            sensorManager.unregisterListener(listener)
         }
     }
 
@@ -250,22 +212,14 @@ fun QiblaScreen(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(16.dp)
             ) {
-                val bearing = qiblaBearing
-
-                // زاویهٔ شمال نسبت به بالای صفحه (فقط بر اساس چرخش گوشی)
-                val northAngle = ((-azimuth + 360f) % 360f)
-
-                // زاویهٔ قبله نسبت به بالای صفحه (اگر موقعیت در دسترس باشد)
-                val qiblaAngle = if (bearing != null) {
-                    ((bearing - azimuth + 360f) % 360f)
-                } else null
 
                 CompassView(
-                    northAngle = northAngle,
-                    qiblaAngle = qiblaAngle,
-                    modifier = Modifier.size(260.dp)
+                    azimuth = azimuth,
+                    qiblaBearing = qiblaBearing,
+                    modifier = Modifier.size(300.dp)
                 )
 
                 Text(
@@ -274,29 +228,22 @@ fun QiblaScreen(
                             "برای نمایش قبله، باید به برنامه مجوز دسترسی به مکان بدهید."
 
                         !isLocationOn ->
-                            "خدمات مکان (GPS یا شبکه) روی دستگاه خاموش است. برای تعیین قبله، مکان را فعال کنید."
+                            "خدمات مکان (GPS) روی دستگاه خاموش است. برای تعیین قبله، آن را فعال کنید."
 
                         userLocation == null ->
-                            "در حال دریافت موقعیت..."
+                            "در حال دریافت موقعیت مکانی..."
 
                         qiblaBearing == null ->
-                            "زاویه قبله در دسترس نیست."
+                            "زاویه قبله در دسترس نیست. لطفاً از اتصال به اینترنت مطمئن شوید."
 
-                        else -> {
-                            val angle = String.format(
-                                Locale.getDefault(),
-                                "%.0f",
-                                qiblaAngle ?: 0f
-                            )
-                            "سمت قبله حدوداً $angle درجه از شمال عقربه‌نماست."
-                        }
+                        else ->
+                            "گوشی را بچرخانید تا نشانگر سبز قبله، زیر نشانگر آبی در بالای قطب‌نما قرار گیرد."
                     },
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(horizontal = 24.dp)
                 )
 
-                // دکمه درخواست مجوز مکان (فقط وقتی مجوز نداریم)
                 if (!hasLocationPermission) {
                     Button(
                         onClick = {
@@ -307,39 +254,28 @@ fun QiblaScreen(
                                 )
                             )
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("اعطای مجوز مکان")
+                        Text("اعطای مجوز مکان", color = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
 
-                // دکمه رفتن به تنظیمات مکان وقتی GPS/Network خاموش است
                 if (hasLocationPermission && !isLocationOn) {
                     Button(
-                        onClick = {
-                            context.startActivity(
-                                Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                        onClick = { context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("فعال‌سازی مکان")
+                        Text("فعال‌سازی مکان", color = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
 
                 if (activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     Text(
-                        text = "گوشی را به‌آرامی به صورت عدد ۸ انگلیسی حرکت دهید تا قطب‌نما کالیبره شود.",
+                        text = "برای افزایش دقت، گوشی را به صورت عدد ۸ انگلیسی در هوا حرکت دهید تا قطب‌نما کالیبره شود.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -348,15 +284,9 @@ fun QiblaScreen(
 }
 
 private fun hasLocation(context: Context): Boolean {
-    val fine = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    val coarse = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_COARSE_LOCATION
-    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    return fine || coarse
+    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+    return fine == android.content.pm.PackageManager.PERMISSION_GRANTED || coarse == android.content.pm.PackageManager.PERMISSION_GRANTED
 }
 
 @SuppressLint("MissingPermission")
@@ -376,69 +306,139 @@ private fun getCurrentLocation(context: Context, onResult: (Location?) -> Unit) 
 
 private fun isLocationServiceEnabled(context: Context): Boolean {
     val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    return lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 }
 
 @Composable
 private fun CompassView(
-    northAngle: Float,          // زاویه شمال نسبت به بالای صفحه
-    qiblaAngle: Float?,         // زاویه قبله نسبت به بالای صفحه (اختیاری)
+    azimuth: Float,
+    qiblaBearing: Float?,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier) {
-        val sizePx = min(size.width, size.height)
-        val radius = sizePx / 2f * 0.85f
-        val center = Offset(size.width / 2f, size.height / 2f)
+    val textPaint = remember {
+        Paint().apply {
+            color = Color.Black.toArgb()
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+    }
 
-        // دایره اصلی
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val radius = size.minDimension / 2f * 0.9f
+        val center = this.center
+
+        // 1. Outer Ring
         drawCircle(
-            color = Color(0xFF0D47A1),
-            center = center,
+            color = Color(0xFF6D84FF),
             radius = radius,
-            style = Stroke(width = 6f)
+            center = center,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = radius * 0.1f)
         )
 
-        // فلش شمال (آبی) - همیشه با چرخاندن گوشی حرکت می‌کند
-        run {
-            val angleRad = Math.toRadians((northAngle - 90f).toDouble())
+        // 2. Inner background
+        drawCircle(
+            color = Color.White,
+            radius = radius * 0.9f,
+            center = center
+        )
+        drawCircle(
+            color = Color.LightGray,
+            radius = radius * 0.9f,
+            center = center,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+        )
+
+        // 3. Rotating part
+        drawContext.canvas.nativeCanvas.save()
+        drawContext.canvas.nativeCanvas.rotate(-azimuth, center.x, center.y)
+
+        // 3.1. Ticks and Numbers
+        val majorTickLength = radius * 0.1f
+        val minorTickLength = majorTickLength / 2
+
+        for (i in 0 until 360 step 2) {
+            val angleRad = Math.toRadians(i.toDouble())
+            val isMajorTick = i % 30 == 0
+
+            val tickLength = if (isMajorTick) majorTickLength else minorTickLength
+            val start = Offset(
+                x = (center.x + (radius * 0.9f - tickLength) * cos(angleRad)).toFloat(),
+                y = (center.y + (radius * 0.9f - tickLength) * sin(angleRad)).toFloat()
+            )
             val end = Offset(
-                x = center.x + (cos(angleRad) * radius).toFloat(),
-                y = center.y + (sin(angleRad) * radius).toFloat()
+                x = (center.x + radius * 0.9f * cos(angleRad)).toFloat(),
+                y = (center.y + radius * 0.9f * sin(angleRad)).toFloat()
             )
-            drawLine(
-                color = Color(0xFF1976D2),
-                start = center,
-                end = end,
-                strokeWidth = 6f,
-                cap = StrokeCap.Round
-            )
-            drawCircle(
-                color = Color(0xFF1976D2),
-                radius = 10f,
-                center = end
-            )
+            drawLine(Color.Black, start, end, strokeWidth = if (isMajorTick) 5f else 2f)
+
+            if (i % 30 == 0 && i != 0) {
+                textPaint.textSize = 14.sp.toPx()
+                val textRadius = radius * 0.75f
+                val textX = center.x + textRadius * cos(angleRad).toFloat()
+                val textY = center.y + textRadius * sin(angleRad).toFloat()
+
+                drawContext.canvas.nativeCanvas.save()
+                drawContext.canvas.nativeCanvas.translate(textX, textY)
+                drawContext.canvas.nativeCanvas.rotate(i.toFloat() + 90f)
+                drawContext.canvas.nativeCanvas.drawText(i.toString(), 0f, 0f, textPaint)
+                drawContext.canvas.nativeCanvas.restore()
+            }
         }
 
-        // فلش قبله (قرمز) - اگر موقعیت و قبله در دسترس باشد
-        if (qiblaAngle != null) {
-            val angleRad = Math.toRadians((qiblaAngle - 90f).toDouble())
-            val end = Offset(
-                x = center.x + (cos(angleRad) * radius).toFloat(),
-                y = center.y + (sin(angleRad) * radius).toFloat()
-            )
-            drawLine(
-                color = Color(0xFFD32F2F),
-                start = center,
-                end = end,
-                strokeWidth = 8f,
-                cap = StrokeCap.Round
-            )
-            drawCircle(
-                color = Color(0xFFD32F2F),
-                radius = 12f,
-                center = end
-            )
+        // 3.2. Cardinal Points (N, S, E, W)
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.textSize = 24.sp.toPx()
+        val cardinalTextRadius = radius * 0.6f
+        val cardinals = mapOf("N" to 0f, "E" to 90f, "S" to 180f, "W" to 270f)
+        cardinals.forEach { (text, angle) ->
+            val angleRad = Math.toRadians(angle.toDouble() - 90)
+            val x = center.x + cardinalTextRadius * cos(angleRad).toFloat()
+            val y = center.y + cardinalTextRadius * sin(angleRad).toFloat()
+            textPaint.color = if (text == "N") Color.Red.toArgb() else Color.Black.toArgb()
+            drawContext.canvas.nativeCanvas.drawText(text, x, y + textPaint.textSize / 3, textPaint)
         }
+
+        // 3.3. Main North/South Needle
+        val needlePath = Path().apply {
+            moveTo(center.x, center.y - radius * 0.5f) // Top point (North)
+            lineTo(center.x - radius * 0.1f, center.y) // Bottom-left
+            lineTo(center.x + radius * 0.1f, center.y) // Bottom-right
+            close()
+        }
+
+        drawPath(path = needlePath, color = Color(0xFFD32F2F)) // Red part
+
+        drawContext.canvas.nativeCanvas.save()
+        drawContext.canvas.nativeCanvas.rotate(180f, center.x, center.y)
+        drawPath(path = needlePath, color = Color(0xFF4242FF)) // Blue part
+        drawContext.canvas.nativeCanvas.restore()
+
+        // 3.4. Qibla Indicator
+        if (qiblaBearing != null) {
+            drawContext.canvas.nativeCanvas.save()
+            drawContext.canvas.nativeCanvas.rotate(qiblaBearing, center.x, center.y)
+            val qiblaIndicatorPath = Path().apply {
+                val qiblaY = center.y - radius * 0.85f
+                moveTo(center.x - 15f, qiblaY - 15f)
+                lineTo(center.x + 15f, qiblaY - 15f)
+                lineTo(center.x, qiblaY)
+                close()
+            }
+            drawPath(qiblaIndicatorPath, color = Color(0xFF4CAF50))
+            drawContext.canvas.nativeCanvas.restore()
+        }
+
+        drawContext.canvas.nativeCanvas.restore() // Restore from the main rotation
+
+        // 4. Central Circle
+        drawCircle(color = Color.LightGray, radius = radius * 0.15f, center = center)
+        drawCircle(color = Color.White, radius = radius * 0.12f, center = center)
+
+        // 5. Static Top Indicator
+        drawCircle(
+            color = Color(0xFF4242FF),
+            radius = radius * 0.05f,
+            center = Offset(center.x, center.y - radius * 0.95f)
+        )
     }
 }

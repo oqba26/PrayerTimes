@@ -92,6 +92,8 @@ class MainActivity : ComponentActivity() {
             val fontId by settingsViewModel.fontId.collectAsState()
             val is24HourFormat by settingsViewModel.is24HourFormat.collectAsState()
             val usePersianNumbers by settingsViewModel.usePersianNumbers.collectAsState()
+            val useNumericDateFormatWidget by settingsViewModel.useNumericDateFormatWidget.collectAsState()
+            val useNumericDateFormatNotification by settingsViewModel.useNumericDateFormatNotification.collectAsState()
 
             var showSettings by remember { mutableStateOf(false) }
             var showExitDialog by remember { mutableStateOf(false) }
@@ -115,7 +117,10 @@ class MainActivity : ComponentActivity() {
             }
 
 
-            LaunchedEffect(usePersianNumbers, is24HourFormat, themeId, fontId) {
+            LaunchedEffect(
+                usePersianNumbers, is24HourFormat, themeId, fontId,
+                useNumericDateFormatWidget, useNumericDateFormatNotification
+            ) {
                 forceUpdateNotification()
                 updateAllWidgetsNow(ctx)
             }
@@ -136,6 +141,7 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     CalendarScreenEntryPoint(
                         viewModel = prayerViewModel,
+                        settingsViewModel = settingsViewModel,
                         onOpenSettings = { showSettings = true },
                         isDarkThemeActive = isDarkTheme,
                         onToggleTheme = onToggleTheme,

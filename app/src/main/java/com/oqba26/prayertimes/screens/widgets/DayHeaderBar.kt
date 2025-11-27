@@ -15,10 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -32,6 +29,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oqba26.prayertimes.models.MultiDate
+import com.oqba26.prayertimes.utils.DateUtils
 
 @Composable
 fun DayHeaderBar(
@@ -40,52 +38,32 @@ fun DayHeaderBar(
     onNextDay: () -> Unit,
     isDark: Boolean,
     usePersianNumbers: Boolean,
-    @Suppress("UNUSED_PARAMETER") use24HourFormat: Boolean
+    useNumericDateMain: Boolean,
+    onToggleDateView: () -> Unit
 ) {
-    val weekDay = remember(date) { com.oqba26.prayertimes.utils.DateUtils.getWeekDayName(date) }
-    var isNumeric by remember { mutableStateOf(false) }
+    val weekDay = remember(date) { DateUtils.getWeekDayName(date) }
 
-    fun formatNumericDate(day: Int, month: Int, year: Int): String {
-        val dd = String.format(java.util.Locale.US, "%02d", day)
-        val mm = String.format(java.util.Locale.US, "%02d", month)
-        val yyyy = String.format(java.util.Locale.US, "%04d", year)
-        // For RTL context, the string must be built in reverse order (YYYY/MM/DD)
-        // to appear correctly as DD/MM/YYYY on the screen.
-        //خط زیر مسئول نمایش تاریخ های عدد به شکل صحیح هست ینی : روز ماه سال
-        return com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers("$yyyy/$mm/$dd", usePersianNumbers)
-    }
+    val shamsiLong = remember(date, usePersianNumbers) { DateUtils.formatShamsiLong(date, usePersianNumbers) }
+    val shamsiNumeric = remember(date, usePersianNumbers) { DateUtils.formatShamsiShort(date, usePersianNumbers) }
 
-    val (sy, sm, sd) = date.getShamsiParts()
-    val shamsiLong = remember(date, usePersianNumbers) { com.oqba26.prayertimes.utils.DateUtils.formatShamsiLong(date, usePersianNumbers) }
-    //نمایش عددی تاریخ شمسی
-    val shamsiNumeric = remember(sy, sm, sd, usePersianNumbers) { formatNumericDate(sd, sm, sy) }
+    val hijriLong = remember(date, usePersianNumbers) { DateUtils.formatHijriLong(date, usePersianNumbers) }
+    val hijriNumeric = remember(date, usePersianNumbers) { DateUtils.formatHijriShort(date, usePersianNumbers) }
 
-    val hijriPartsRaw = remember(date) { date.hijri.split("/") }
-    val hY = hijriPartsRaw.getOrNull(0)?.toIntOrNull() ?: 0
-    val hM = hijriPartsRaw.getOrNull(1)?.toIntOrNull() ?: 0
-    val hD = hijriPartsRaw.getOrNull(2)?.toIntOrNull() ?: 0
-    val hijriLong = remember(date, usePersianNumbers) { com.oqba26.prayertimes.utils.DateUtils.formatHijriLong(date, usePersianNumbers) }
-    //نمایش عددی تاریخ قمری
-    val hijriNumeric = remember(hY, hM, hD, usePersianNumbers) { formatNumericDate(hD, hM, hY) }
-
-    val gregPartsRaw = remember(date) { date.gregorian.split("/") }
-    val gY = gregPartsRaw.getOrNull(0)?.toIntOrNull() ?: 0
-    val gM = gregPartsRaw.getOrNull(1)?.toIntOrNull() ?: 0
-    val gD = gregPartsRaw.getOrNull(2)?.toIntOrNull() ?: 0
-    val gregLong = remember(date, usePersianNumbers) { com.oqba26.prayertimes.utils.DateUtils.formatGregorianLong(date, usePersianNumbers) }
-    //نمایش عددی تاریخ میلادی
-    val gregNumeric = remember(gY, gM, gD, usePersianNumbers) { formatNumericDate(gD, gM, gY) }
+    val gregLong = remember(date, usePersianNumbers) { DateUtils.formatGregorianLong(date, usePersianNumbers) }
+    val gregNumeric = remember(date, usePersianNumbers) { DateUtils.formatGregorianShort(date, usePersianNumbers) }
 
     val cardBackgroundBrush = if (isDark) SolidColor(MaterialTheme.colorScheme.surfaceContainer) else SolidColor(Color.White)
     val innerBarBackgroundColor = if (isDark) Color(0xFF4F378B) else Color(0xFF0E7490)
     val innerBarTextColor = MaterialTheme.colorScheme.onPrimary
 
-    val line1 = remember(isNumeric, shamsiLong, shamsiNumeric, weekDay) {
-        val weekDayTxt = com.oqba26.prayertimes.utils.DateUtils.convertToPersianNumbers(weekDay, usePersianNumbers)
-        if (isNumeric) "$weekDayTxt $shamsiNumeric" else "$weekDayTxt $shamsiLong"
+    val line1 = remember(useNumericDateMain, shamsiLong, shamsiNumeric, weekDay) {
+        val weekDayTxt = DateUtils.convertToPersianNumbers(weekDay, usePersianNumbers)
+        if (useNumericDateMain) "$weekDayTxt $shamsiNumeric" else "$weekDayTxt $shamsiLong"
     }
-    val line2 = remember(isNumeric, hijriLong, gregLong, hijriNumeric, gregNumeric) {
-        if (isNumeric) "$hijriNumeric | $gregNumeric" else "$hijriLong | $gregLong"
+    val line2 = remember(useNumericDateMain, hijriLong, gregLong, hijriNumeric, gregNumeric) {
+        val hijri = if (useNumericDateMain) hijriNumeric else hijriLong
+        val greg = if (useNumericDateMain) gregNumeric else gregLong
+        "$hijri | $greg"
     }
 
     Box(
@@ -97,9 +75,9 @@ fun DayHeaderBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp) // کمی فشرده‌تر
+                .height(52.dp)
                 .background(innerBarBackgroundColor, shape = RectangleShape)
-                .clickable { isNumeric = !isNumeric }
+                .clickable { onToggleDateView() }
         ) {
             Column(
                 modifier = Modifier.align(Alignment.Center).padding(horizontal = 60.dp),

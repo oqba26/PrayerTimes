@@ -34,6 +34,27 @@
     </LinearLayout>
 
     <ImageView
+        android:id="@+id/iv_general_times"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:visibility="gone"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:layout_marginBottom="4dp" />
+
+    <ImageView
+        android:id="@+id/divider1"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="64dp"
+        android:layout_marginEnd="64dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp"
+        android:background="#616161"
+        android:visibility="gone" />
+
+    <ImageView
         android:id="@+id/iv_prayer_times"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -6,22 +6,6 @@
     android:orientation="vertical"
     android:gravity="center_horizontal">
 
-    <!-- عنوان شمسی (fallback) -->
-    <TextView
-        android:id="@+id/tv_shamsi_full"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        android:textAlignment="center"
-        android:gravity="center"
-        android:includeFontPadding="false"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:text="چهارشنبه ۵ شهریور ۱۴۰۴" />
-
     <!-- عنوان شمسی (Bitmap) -->
     <ImageView
         android:id="@+id/iv_title_collapsed"
@@ -32,27 +16,6 @@
         android:scaleType="fitCenter"
         android:paddingTop="4dp"
         android:paddingBottom="2dp" />
-
-    <!-- قمری | میلادی در یک خط (fallback) -->
-    <TextView
-        android:id="@+id/tv_other_dates_collapsed"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:textSize="13sp"
-        android:textAlignment="center"
-        android:gravity="center"
-        android:includeFontPadding="false"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:textDirection="anyRtl"
-        android:paddingTop="2dp"
-        android:paddingBottom="4dp"
-        android:autoSizeTextType="uniform"
-        android:autoSizeMinTextSize="10sp"
-        android:autoSizeMaxTextSize="13sp"
-        android:autoSizeStepGranularity="1sp"
-        android:text="۴ ربیع‌الاول ۱۴۴۷ | ۲۷ اوت ۲۰۲۵" />
 
     <!-- قمری | میلادی (Bitmap) -->
     <ImageView
