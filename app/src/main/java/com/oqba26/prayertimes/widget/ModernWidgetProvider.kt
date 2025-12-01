@@ -103,6 +103,7 @@ open class ModernWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.N)
     private fun triggerUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         updateJob?.cancel()
         updateJob = scope.launch {
