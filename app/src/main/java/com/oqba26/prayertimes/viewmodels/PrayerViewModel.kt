@@ -10,7 +10,6 @@ import com.oqba26.prayertimes.models.UserNote // فرض بر اینکه این i
 import com.oqba26.prayertimes.screens.ViewMode // فرض بر اینکه این import لازم است
 import com.oqba26.prayertimes.utils.DateUtils.getCurrentDate
 import com.oqba26.prayertimes.utils.PrayerUtils
-import com.oqba26.prayertimes.utils.PrayerUtils.loadDetailedPrayerTimes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,31 +24,28 @@ class PrayerViewModel : ViewModel() {
         data class Error(val message: String, val throwable: Throwable? = null) : Result<Nothing>()
         object Loading : Result<Nothing>()
     }
+
     // selectedDate
     private val _currentDate = MutableStateFlow(getCurrentDate())
+
     @Suppress("unused")
     val selectedDate: StateFlow<MultiDate> = _currentDate.asStateFlow()
 
-    // uiState (prayer times data)
-    private val _uiState = MutableStateFlow<Result<Map<String, String>>>(Result.Loading)
-    val uiState: StateFlow<Result<Map<String, String>>> = _uiState.asStateFlow()
+    // uiState now holds a Pair of maps
+    private val _uiState = MutableStateFlow<Result<Pair<Map<String, String>, Map<String, String>>>>(Result.Loading)
+    val uiState: StateFlow<Result<Pair<Map<String, String>, Map<String, String>>>> = _uiState.asStateFlow()
 
-    // currentPrayer
+    // ... (rest of the properties remain the same)
     private val _currentPrayer = MutableStateFlow<String?>("")
-
-    // userNotes
     private val _userNotes = MutableStateFlow<Map<String, UserNote>>(emptyMap())
     @Suppress("unused")
     val userNotes: StateFlow<Map<String, UserNote>> = _userNotes.asStateFlow()
-
-    // currentViewMode
     private val _currentViewMode = MutableStateFlow(ViewMode.PRAYER_TIMES)
     @Suppress("unused")
     val currentViewMode: StateFlow<ViewMode> = _currentViewMode.asStateFlow()
 
     @SuppressLint("StaticFieldLeak")
     private var context: Context? = null
-    private var prayerTimesData: Map<String, String> = emptyMap()
 
     fun loadData(context: Context) {
         this.context = context
@@ -73,12 +69,11 @@ class PrayerViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = Result.Loading
             try {
-                val times = loadDetailedPrayerTimes(ctx, date)
-                if (times.isEmpty()) {
+                val (generalTimes, specificTimes) = PrayerUtils.loadSeparatedPrayerTimes(ctx, date)
+                if (generalTimes.isEmpty()) {
                     _uiState.value = Result.Error("اوقات شرعی برای این تاریخ موجود نیست")
                 } else {
-                    prayerTimesData = times
-                    _uiState.value = Result.Success(times)
+                    _uiState.value = Result.Success(Pair(generalTimes, specificTimes))
                     updateCurrentPrayer()
                 }
             } catch (e: Exception) {
@@ -95,13 +90,13 @@ class PrayerViewModel : ViewModel() {
             else -> return
         }
 
-        if (currentData.isNotEmpty()) {
-            val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء", "صبح", "مغرب")
-            val current = PrayerUtils.computeHighlightPrayer(LocalTime.now(), currentData, order)
+        val (_, specificTimes) = currentData
+        if (specificTimes.isNotEmpty()) {
+            val specificOrder = listOf("صبح", "ظهر", "عصر", "مغرب", "عشاء")
+            val current = PrayerUtils.computeHighlightPrayer(LocalTime.now(), specificTimes, specificOrder)
             if (_currentPrayer.value != current) {
                 _currentPrayer.value = current
             }
-            prayerTimesData = currentData
         }
     }
 

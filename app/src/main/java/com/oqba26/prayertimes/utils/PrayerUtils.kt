@@ -90,33 +90,33 @@ object PrayerUtils {
 
     fun computeHighlightPrayer(now: LocalTime, times: Map<String, String>, order: List<String>): String? {
         val stickMinutes = 30L
+
         val parsedPrayerTimes = order.mapNotNull { name ->
-            times[name]?.let { timeStr ->
-                parseTimeSafely(timeStr)?.let { name to it }
-            }
+            val raw = times[name] ?: return@mapNotNull null
+            parseTimeSafely(raw)?.let { time -> name to time }
         }.sortedBy { it.second }
 
-        if (parsedPrayerTimes.isEmpty()) return null
-
-        // Find the last prayer that has passed
-        val currentPrayerIndex = parsedPrayerTimes.indexOfLast { now.isAfter(it.second) || now == it.second }
-
-        // Before the first prayer of the day
-        if (currentPrayerIndex == -1) {
-            return parsedPrayerTimes.first().first
+        if (parsedPrayerTimes.isEmpty()) {
+            return null
         }
 
-        val (currentPrayerName, currentPrayerTime) = parsedPrayerTimes[currentPrayerIndex]
+        // اولین وقتی که now بعد از (time + 30 دقیقه) نشده باشد
+        val found = parsedPrayerTimes.firstOrNull { (_, prayerTime) ->
+            val end = prayerTime.plusMinutes(stickMinutes)
+            !now.isAfter(end)
+        }
+        // اگر از همه‌ٔ وقت‌ها عبور کرده باشیم، برگرد اول لیست (طلوع بامداد فردا)
+        return found?.first ?: parsedPrayerTimes.first().first
+    }
 
-        // Check if we are within the sticky window of the current prayer
-        val stickyWindowEnd = currentPrayerTime.plusMinutes(stickMinutes)
-        return if (now.isAfter(stickyWindowEnd)) {
-            // After sticky window, highlight the *next* prayer
-            val nextPrayerIndex = (currentPrayerIndex + 1) % parsedPrayerTimes.size
-            parsedPrayerTimes[nextPrayerIndex].first
-        } else {
-            // Within prayer time or its sticky window, highlight current prayer
-            currentPrayerName
+    fun getGeneralPrayerName(specificPrayerName: String?): String? {
+        return when (specificPrayerName) {
+            "صبح" -> "طلوع بامداد"
+            "ظهر" -> "ظهر"
+            "عصر" -> "عصر"
+            "مغرب" -> "غروب"
+            "عشاء" -> "عشاء"
+            else -> specificPrayerName
         }
     }
 

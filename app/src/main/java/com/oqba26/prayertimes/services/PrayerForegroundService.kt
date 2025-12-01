@@ -50,6 +50,7 @@ class PrayerForegroundService : Service() {
         const val ACTION_STOP = "STOP"
         const val ACTION_UPDATE = "UPDATE"
         const val ACTION_SCHEDULE_ALARMS = "SCHEDULE_ALARMS"
+        const val ACTION_SCHEDULE_DND = "SCHEDULE_DND"
         const val ACTION_PREV = "PREVIOUS_DAY"
         const val ACTION_NEXT = "NEXT_DAY"
         const val ACTION_TODAY = "TODAY"
@@ -88,6 +89,10 @@ class PrayerForegroundService : Service() {
         fun scheduleAlarms(context: Context) {
             startServiceInternal(context, ACTION_SCHEDULE_ALARMS)
         }
+
+        fun scheduleDnd(context: Context) {
+            startServiceInternal(context, ACTION_SCHEDULE_DND)
+        }
     }
 
     private val job = SupervisorJob()
@@ -99,6 +104,7 @@ class PrayerForegroundService : Service() {
             if (intent.action == Intent.ACTION_TIME_TICK) {
                 scope.launch {
                     updateAllWidgets(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                    updateNotification()
                 }
             }
         }
@@ -127,6 +133,8 @@ class PrayerForegroundService : Service() {
         Log.d(TAG, "Service Destroyed")
     }
 
+    @SuppressLint("ObsoleteSdkInt")
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand with action: ${intent?.action}")
         val action = intent?.action
@@ -151,6 +159,7 @@ class PrayerForegroundService : Service() {
                     ACTION_MIDNIGHT_UPDATE -> handleMidnightUpdate()
                     ACTION_UPDATE -> updateNotification()
                     ACTION_SCHEDULE_ALARMS -> scheduleAlarms()
+                    ACTION_SCHEDULE_DND -> scheduleDndAlarms()
                     ACTION_PREV -> changeDate(-1)
                     ACTION_NEXT -> changeDate(1)
                     ACTION_TODAY -> changeDate(0)
@@ -222,23 +231,44 @@ class PrayerForegroundService : Service() {
         val now = LocalTime.now()
 
         val (generalTimes, specificTimes) = PrayerUtils.loadSeparatedPrayerTimes(this, date)
-        val mergedTimes = generalTimes + specificTimes
 
-        if (generalTimes.isEmpty() || specificTimes.isEmpty()) {
+        val settings = dataStore.data.first()
+        val showGeneralTimes = settings[booleanPreferencesKey("show_general_times")] ?: true
+        val showSpecificTimes = settings[booleanPreferencesKey("show_specific_times")] ?: true
+
+        if ((showGeneralTimes && generalTimes.isEmpty()) || (showSpecificTimes && specificTimes.isEmpty())) {
             Log.e(TAG, "One or both prayer time maps are empty for $date. Aborting notification update.")
             showErrorNotification("خطا در بارگذاری اوقات شرعی", Exception("اطلاعات برای تاریخ $date یافت نشد."))
             return
         }
 
-        val generalHighlight = PrayerUtils.computeHighlightPrayer(now, mergedTimes, listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء"))
-        val specificHighlight = PrayerUtils.computeHighlightPrayer(now, mergedTimes, listOf("صبح", "ظهر", "عصر", "مغرب", "عشاء"))
+        // Create a temporary, complete map and order for highlight calculation
+        val highlightOrder = listOf("صبح", "طلوع خورشید", "ظهر", "عصر", "مغرب", "عشاء")
+        val highlightTimes = specificTimes.toMutableMap().apply {
+            generalTimes["طلوع خورشید"]?.let { put("طلوع خورشید", it) }
+        }
+
+        // Calculate the highlighted prayer using the complete temporary map
+        val calculatedHighlight = PrayerUtils.computeHighlightPrayer(now, highlightTimes, highlightOrder)
+        var specificHighlightName = calculatedHighlight
+
+        // Special case: When it's sunrise, highlight Dhuhr in the specific (5-times) list
+        if (calculatedHighlight == "طلوع خورشید") {
+            specificHighlightName = "ظهر"
+        }
+
+        // Convert the specific name (e.g., "صبح") back to a general name (e.g., "طلوع بامداد") for UI matching
+        val generalHighlightName = PrayerUtils.getGeneralPrayerName(calculatedHighlight)
+
 
         val notification = createPrayerNotification(
             date,
             generalTimes,
             specificTimes,
-            generalHighlight,
-            specificHighlight
+            generalHighlightName,
+            specificHighlightName,
+            showGeneralTimes,
+            showSpecificTimes
         )
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(NOTIFICATION_ID, notification)
@@ -275,6 +305,25 @@ class PrayerForegroundService : Service() {
             val times = PrayerUtils.loadDetailedPrayerTimes(this, today)
             if (times.isNotEmpty()) {
                 AdhanScheduler.scheduleFromPrayerMap(this, times)
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    private suspend fun scheduleDndAlarms() {
+        val settings = dataStore.data.first()
+        val dndEnabled = settings[booleanPreferencesKey("dnd_enabled")] ?: false
+        val dndStartTime = settings[stringPreferencesKey("dnd_start_time")] ?: "22:00"
+        val dndEndTime = settings[stringPreferencesKey("dnd_end_time")] ?: "07:00"
+
+        @Suppress("RemoveRedundantQualifierName") val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (notificationManager.isNotificationPolicyAccessGranted) {
+            if (dndEnabled) {
+                val start = LocalTime.parse(dndStartTime)
+                val end = LocalTime.parse(dndEndTime)
+                DndScheduler.scheduleDnd(this, start, end)
+            } else {
+                DndScheduler.cancelDnd(this)
             }
         }
     }
@@ -336,7 +385,9 @@ class PrayerForegroundService : Service() {
         generalTimes: Map<String, String>,
         specificTimes: Map<String, String>,
         generalHighlight: String?,
-        specificHighlight: String?
+        specificHighlight: String?,
+        showGeneralTimes: Boolean,
+        showSpecificTimes: Boolean
     ): Notification {
         val settings = dataStore.data.first()
         val usePersian = settings[booleanPreferencesKey("use_persian_numbers")] ?: true
@@ -347,19 +398,21 @@ class PrayerForegroundService : Service() {
 
         val tf = font(fontId)
 
-        val primaryTextColor: Int
+        @Suppress("VariableNeverRead") val primaryTextColor: Int
         val secondaryTextColor: Int
         val prayerTimeColor: Int
         val prayerHighlightColor: Int
         val persianDateColor: Int
 
         if (dark) {
+            @Suppress("AssignedValueIsNeverRead")
             primaryTextColor = Color.WHITE
             secondaryTextColor = Color.LTGRAY
             prayerTimeColor = "#80DEEA".toColorInt()
             prayerHighlightColor = "#FFF59D".toColorInt()
             persianDateColor = prayerTimeColor
         } else {
+            @Suppress("AssignedValueIsNeverRead")
             primaryTextColor = Color.BLACK
             secondaryTextColor = Color.DKGRAY
             prayerTimeColor = "#0D47A1".toColorInt()
@@ -422,35 +475,47 @@ class PrayerForegroundService : Service() {
         exp.setViewVisibility(R.id.iv_other, View.VISIBLE)
         exp.setOnClickPendingIntent(R.id.iv_other, toggleDateFormatIntent)
 
-        val generalBmp = createPrayerTimesBitmapWithHighlight(
-            context = this,
-            prayerTimes = generalTimes,
-            currentPrayerName = generalHighlight,
-            tf = tf,
-            maxWidthPx = w,
-            baseColor = prayerTimeColor,
-            highlightColor = prayerHighlightColor,
-            use24HourFormat = use24h,
-            usePersianNumbers = usePersian
-        )
-        exp.setImageViewBitmap(R.id.iv_general_times, generalBmp)
-        exp.setViewVisibility(R.id.iv_general_times, View.VISIBLE)
+        if (showGeneralTimes) {
+            val generalBmp = createPrayerTimesBitmapWithHighlight(
+                context = this,
+                prayerTimes = generalTimes,
+                currentPrayerName = generalHighlight,
+                tf = tf,
+                maxWidthPx = w,
+                baseColor = prayerTimeColor,
+                highlightColor = prayerHighlightColor,
+                use24HourFormat = use24h,
+                usePersianNumbers = usePersian
+            )
+            exp.setImageViewBitmap(R.id.iv_general_times, generalBmp)
+            exp.setViewVisibility(R.id.iv_general_times, View.VISIBLE)
+        } else {
+            exp.setViewVisibility(R.id.iv_general_times, View.GONE)
+        }
 
-        exp.setViewVisibility(R.id.divider1, View.VISIBLE)
+        if (showGeneralTimes && showSpecificTimes) {
+            exp.setViewVisibility(R.id.divider1, View.VISIBLE)
+        } else {
+            exp.setViewVisibility(R.id.divider1, View.GONE)
+        }
 
-        val prayBmp = createFivePrayerTimesBitmap(
-            context = this,
-            prayerTimes = specificTimes,
-            currentPrayerName = specificHighlight,
-            tf = tf,
-            maxWidthPx = w,
-            baseColor = prayerTimeColor,
-            highlightColor = prayerHighlightColor,
-            use24HourFormat = use24h,
-            usePersianNumbers = usePersian
-        )
-        exp.setImageViewBitmap(R.id.iv_prayer_times, prayBmp)
-        exp.setViewVisibility(R.id.iv_prayer_times, View.VISIBLE)
+        if (showSpecificTimes) {
+            val prayBmp = createFivePrayerTimesBitmap(
+                context = this,
+                prayerTimes = specificTimes,
+                currentPrayerName = specificHighlight,
+                tf = tf,
+                maxWidthPx = w,
+                baseColor = prayerTimeColor,
+                highlightColor = prayerHighlightColor,
+                use24HourFormat = use24h,
+                usePersianNumbers = usePersian
+            )
+            exp.setImageViewBitmap(R.id.iv_prayer_times, prayBmp)
+            exp.setViewVisibility(R.id.iv_prayer_times, View.VISIBLE)
+        } else {
+            exp.setViewVisibility(R.id.iv_prayer_times, View.GONE)
+        }
 
         val navCol = if (dark) "#78909C".toColorInt() else "#546E7A".toColorInt()
         val todayCol = if (dark) "#64B5F6".toColorInt() else "#1976D2".toColorInt()

@@ -14,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.oqba26.prayertimes.PrayerTime
+import com.oqba26.prayertimes.screens.widgets.MinuteDropdown
 import com.oqba26.prayertimes.viewmodels.SettingsViewModel
 
 @Composable
@@ -26,7 +28,8 @@ fun IqamaSettingsSection(
     lastInteractionTime: Long,
     onInteraction: () -> Unit
 ) {
-    val iqamaEnabled by settingsViewModel.iqamaEnabled.collectAsState()
+    val prayerIqamaEnabled by settingsViewModel.prayerIqamaEnabled.collectAsState()
+    val anyIqamaEnabled = prayerIqamaEnabled.values.any { it }
     val minutesBeforeIqama by settingsViewModel.minutesBeforeIqama.collectAsState()
     var iqamaNotificationText by remember { mutableStateOf(settingsViewModel.iqamaNotificationText.value) }
 
@@ -37,23 +40,26 @@ fun IqamaSettingsSection(
         isDark = isDark,
         lastInteractionTime = lastInteractionTime
     ) {
-        SwitchSettingRow(
-            title = "فعال کردن اعلان اقامه",
-            subtitle = "یک اعلان برای یادآوری اقامه نماز دریافت کنید",
-            checked = iqamaEnabled,
-            onCheckedChange = { isEnabled ->
-                settingsViewModel.updateIqamaEnabled(isEnabled)
-                if (isEnabled && expanded) {
-                    onToggle()
-                }
-                onInteraction()
-            },
-            onInteraction = onInteraction
-        )
-        AnimatedVisibility(iqamaEnabled) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            PrayerTime.entries.forEach { prayer ->
+                SwitchSettingRow(
+                    title = "اعلان اقامه برای ${prayer.displayName}",
+                    subtitle = null,
+                    checked = prayerIqamaEnabled[prayer] ?: false,
+                    onCheckedChange = { isEnabled ->
+                        settingsViewModel.updatePrayerIqamaEnabled(prayer, isEnabled)
+                        onInteraction()
+                    },
+                    onInteraction = onInteraction
+                )
+            }
+        }
+
+        AnimatedVisibility(anyIqamaEnabled) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 MinuteDropdown(
                     label = "زمان اعلان اقامه",
+                    subtitle = "اعلان اقامه چند دقیقه قبل از وقت نماز نمایش داده شود",
                     selectedValue = minutesBeforeIqama,
                     range = 0..30,
                     onValueChange = { 
@@ -71,7 +77,7 @@ fun IqamaSettingsSection(
                         onInteraction()
                     },
                     label = { Text("متن اعلان اقامه") },
-                    placeholder = { Text("متنی که میخواهید برای اعلان اقامه به شما نمایش داده شود را اینجا وارد کنید") },
+                    placeholder = { Text("مثال: اکنون زمان اقامه {prayer} است.") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }

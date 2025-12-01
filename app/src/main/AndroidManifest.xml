@@ -171,5 +171,10 @@
             android:enabled="true"
             android:exported="false" />
 
+        <receiver
+            android:name=".receivers.DndReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
     </application>
 </manifest>

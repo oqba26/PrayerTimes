@@ -62,7 +62,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -88,7 +88,6 @@ import com.oqba26.prayertimes.ui.AppFonts
 import com.oqba26.prayertimes.viewmodels.SettingsViewModel
 import com.oqba26.prayertimes.widget.LargeModernWidgetProvider
 import com.oqba26.prayertimes.widget.ModernWidgetProvider
-import kotlinx.coroutines.delay
 
 private val topBarLightColor = Color(0xFF0E7490)
 private val topBarDarkColor = Color(0xFF4F378B)
@@ -142,16 +141,9 @@ fun ExpandableSettingCard(
     expanded: Boolean,
     onToggle: () -> Unit,
     isDark: Boolean,
-    lastInteractionTime: Long,
+    @Suppress("unused") lastInteractionTime: Long,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    LaunchedEffect(expanded, lastInteractionTime) {
-        if (expanded) {
-            delay(10000) // 10 seconds
-            onToggle()
-        }
-    }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -286,7 +278,7 @@ fun AdhanSoundDropdown(
                 .fillMaxWidth(),
             readOnly = true,
             value = selectedLabel,
-            onValueChange = {},
+            onValueChange = { },
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
@@ -439,6 +431,9 @@ fun SettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val alarmManager = ContextCompat.getSystemService(context, AlarmManager::class.java)
 
+    val showGeneralTimes by settingsViewModel.showGeneralTimes.collectAsState()
+    val showSpecificTimes by settingsViewModel.showSpecificTimes.collectAsState()
+
     var hasExactAlarmPermission by remember { mutableStateOf(alarmManager?.canScheduleExactAlarms() ?: true) }
     val exactAlarmSettingsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -451,6 +446,7 @@ fun SettingsScreen(
     var adhanExpanded by remember { mutableStateOf(false) }
     var silentExpanded by remember { mutableStateOf(false) }
     var iqamaExpanded by remember { mutableStateOf(false) }
+    var dndExpanded by remember { mutableStateOf(false) }
     var showFontDialog by remember { mutableStateOf(false) }
 
     var generalInteractionTime by remember { mutableLongStateOf(0L) }
@@ -458,6 +454,7 @@ fun SettingsScreen(
     var adhanInteractionTime by remember { mutableLongStateOf(0L) }
     var silentInteractionTime by remember { mutableLongStateOf(0L) }
     var iqamaInteractionTime by remember { mutableLongStateOf(0L) }
+    var dndInteractionTime by remember { mutableLongStateOf(0L) }
 
     var widgetExists by remember { mutableStateOf(hasWidget(context)) }
 
@@ -570,6 +567,22 @@ fun SettingsScreen(
                         onCheckedChange = onIs24HourFormatChange,
                         onInteraction = { displayInteractionTime = System.currentTimeMillis() }
                     )
+                    HorizontalDivider()
+                    SwitchSettingRow(
+                        title = "نمایش اوقات شرعی عمومی",
+                        subtitle = "فعال‌سازی نمایش اوقات شرعی عمومی در ویجت و نوتیفیکیشن",
+                        checked = showGeneralTimes,
+                        onCheckedChange = { settingsViewModel.updateShowGeneralTimes(it) },
+                        onInteraction = { displayInteractionTime = System.currentTimeMillis() }
+                    )
+                    HorizontalDivider()
+                    SwitchSettingRow(
+                        title = "نمایش اوقات شرعی خصوصی",
+                        subtitle = "فعال‌سازی نمایش اوقات شرعی خصوصی در ویجت و نوتیفیکیشن",
+                        checked = showSpecificTimes,
+                        onCheckedChange = { settingsViewModel.updateShowSpecificTimes(it) },
+                        onInteraction = { displayInteractionTime = System.currentTimeMillis() }
+                    )
                 }
 
                 AdhanSettingsSection(
@@ -580,6 +593,16 @@ fun SettingsScreen(
                     isDark = isDarkThemeActive,
                     lastInteractionTime = adhanInteractionTime,
                     onInteraction = { adhanInteractionTime = System.currentTimeMillis() }
+                )
+
+                DndSettingsSection(
+                    expanded = dndExpanded,
+                    onToggle = { dndExpanded = !dndExpanded },
+                    settingsViewModel = settingsViewModel,
+                    usePersianNumbers = usePersianNumbers,
+                    isDark = isDarkThemeActive,
+                    lastInteractionTime = dndInteractionTime,
+                    onInteraction = { dndInteractionTime = System.currentTimeMillis() }
                 )
 
                 IqamaSettingsSection(

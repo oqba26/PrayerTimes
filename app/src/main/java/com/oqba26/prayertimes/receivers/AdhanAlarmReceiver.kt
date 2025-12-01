@@ -23,8 +23,6 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
     @SuppressLint("UnsafeProtectedBroadcastReceiver")
     override fun onReceive(context: Context, intent: Intent) {
 
-        // ۱) شناسه نماز را از اینتنت بگیریم
-        //    (هم از EXTRA_PRAYER_ID و هم از "PRAYER_ID" پشتیبانی می‌کنیم)
         val rawPrayerId = intent.getStringExtra(AdhanPlayerService.EXTRA_PRAYER_ID)
             ?: intent.getStringExtra("PRAYER_ID")
 
@@ -33,7 +31,6 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        // ۲) اگر "noop" باشد یعنی آلارم نیمه‌شب برای reschedule
         if (rawPrayerId == "noop") {
             Log.d(TAG, "Midnight reschedule trigger received (PRAYER_ID=noop)")
             try {
@@ -49,22 +46,17 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
 
         val prayerId = rawPrayerId
 
-        // ۳) صدای اذان انتخاب‌شده را بخوانیم
-        val adhanSoundExtra = intent.getStringExtra(AdhanPlayerService.EXTRA_ADHAN_SOUND)
+        // صدای اذان انتخاب‌شده را بخوانیم
+        val adhanSound = intent.getStringExtra(AdhanPlayerService.EXTRA_ADHAN_SOUND)
 
-        // ⚠ برای این‌که مطمئن شویم فعلاً اذان حتماً پخش می‌شود،
-        //   اگر مقدار تهی یا "off" بود، به صورت پیش‌فرض "makkah" را می‌گذاریم.
-        val soundToPlay = if (adhanSoundExtra.isNullOrBlank() || adhanSoundExtra == "off") {
-            Log.w(
-                TAG,
-                "Adhan sound was null/blank/off for $prayerId; using default 'makkah' for debugging."
-            )
-            "makkah"
-        } else {
-            adhanSoundExtra
+        // اگر صدای اذان "off" یا خالی بود، پخش نکن و خارج شو
+        if (adhanSound.isNullOrBlank() || adhanSound == "off") {
+            Log.i(TAG, "Adhan for $prayerId is set to 'off', skipping playback.")
+            return
         }
 
-        Log.d(TAG, "📢 Starting Adhan playback for $prayerId with sound='$soundToPlay'")
-        AdhanPlayerService.playNow(context.applicationContext, prayerId, soundToPlay)
+        // در غیر این صورت، سرویس پخش اذان را اجرا کن
+        Log.d(TAG, "📢 Starting Adhan playback for $prayerId with sound='$adhanSound'")
+        AdhanPlayerService.playNow(context.applicationContext, prayerId, adhanSound)
     }
 }

@@ -10,14 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,58 +28,10 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.unit.dp
 import com.oqba26.prayertimes.PrayerTime
 import com.oqba26.prayertimes.R
-import com.oqba26.prayertimes.utils.DateUtils
+import com.oqba26.prayertimes.screens.widgets.MinuteDropdown
 import com.oqba26.prayertimes.viewmodels.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MinuteDropdown(
-    label: String,
-    selectedValue: Int,
-    range: IntRange,
-    onValueChange: (Int) -> Unit,
-    usePersianNumbers: Boolean,
-    onInteraction: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = if (selectedValue == 0) "همزمان با نماز" else "${DateUtils.convertToPersianNumbers(selectedValue.toString(), usePersianNumbers)} دقیقه قبل"
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = {
-            expanded = it
-            onInteraction()
-        },
-        modifier = Modifier.padding(vertical = 4.dp)
-    ) {
-        OutlinedTextField(
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
-            readOnly = true,
-            value = selectedLabel,
-            onValueChange = {},
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-            shape = MaterialTheme.shapes.medium
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            range.forEach { minute ->
-                DropdownMenuItem(
-                    text = { Text(if (minute == 0) "همزمان با نماز" else "${DateUtils.convertToPersianNumbers(minute.toString(), usePersianNumbers)} دقیقه قبل") },
-                    onClick = {
-                        onValueChange(minute)
-                        onInteraction()
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
 @Composable
 fun PrayerAdhanSettingRow(
     prayer: PrayerTime,

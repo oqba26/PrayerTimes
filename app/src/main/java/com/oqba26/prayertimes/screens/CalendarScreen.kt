@@ -89,7 +89,6 @@ import com.oqba26.prayertimes.viewmodels.DateConverterViewModel
 import com.oqba26.prayertimes.viewmodels.PrayerViewModel
 import com.oqba26.prayertimes.viewmodels.SettingsViewModel
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.Period
 
 val DarkThemePurpleBackground = Color(0xFF4F378B)
@@ -100,7 +99,7 @@ enum class ViewMode { PRAYER_TIMES, NOTES }
 @Composable
 fun CalendarScreen(
     currentDate: MultiDate,
-    uiState: PrayerViewModel.Result<Map<String, String>>,
+    uiState: PrayerViewModel.Result<Pair<Map<String, String>, Map<String, String>>>,
     onDateChange: (MultiDate) -> Unit,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -120,14 +119,6 @@ fun CalendarScreen(
     onToggleDateView: () -> Unit
 ) {
     val context = LocalContext.current
-
-    val currentTime = remember { mutableStateOf(LocalTime.now()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(60_000)
-            currentTime.value = LocalTime.now()
-        }
-    }
 
     val today = remember { DateUtils.getCurrentDate() }
     val diffLabel = remember(currentDate.shamsi, today.shamsi, usePersianNumbers) {
@@ -208,9 +199,10 @@ fun CalendarScreen(
                         IconButton(
                             onClick = {
                                 if (uiState is PrayerViewModel.Result.Success) {
+                                    val (generalTimes, _) = uiState.data
                                     val textToShare = com.oqba26.prayertimes.utils.ShareUtils.buildShareText(
                                         currentDate,
-                                        uiState.data,
+                                        generalTimes,
                                         usePersianNumbers,
                                         use24HourFormat
                                     )
@@ -302,15 +294,18 @@ fun CalendarScreen(
                                 }
                             }
 
-                            is PrayerViewModel.Result.Success -> PrayerTimesList(
-                                prayerTimes = uiState.data,
-                                modifier = Modifier.fillMaxSize(),
-                                isDark = isDarkThemeActive,
-                                usePersianNumbers = usePersianNumbers,
-                                use24HourFormat = use24HourFormat,
-                                contentPadding = innerPadding,
-                                currentTime = currentTime.value
-                            )
+                            is PrayerViewModel.Result.Success -> {
+                                val (generalTimes, specificTimes) = uiState.data
+                                PrayerTimesList(
+                                    prayerTimes = generalTimes,
+                                    specificTimes = specificTimes,
+                                    modifier = Modifier.fillMaxSize(),
+                                    isDark = isDarkThemeActive,
+                                    usePersianNumbers = usePersianNumbers,
+                                    use24HourFormat = use24HourFormat,
+                                    contentPadding = innerPadding
+                                )
+                            }
                         }
                     }
 

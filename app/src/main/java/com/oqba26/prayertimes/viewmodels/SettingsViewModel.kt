@@ -39,11 +39,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val DEFAULT_IQAMA_TEXT = "اکنون زمان اقامه {prayer} است."
 
     // --- Preference Keys ---
+    private val DND_ENABLED = booleanPreferencesKey("dnd_enabled")
+    private val DND_START_TIME = stringPreferencesKey("dnd_start_time")
+    private val DND_END_TIME = stringPreferencesKey("dnd_end_time")
+    private val SHOW_GENERAL_TIMES = booleanPreferencesKey("show_general_times")
+    private val SHOW_SPECIFIC_TIMES = booleanPreferencesKey("show_specific_times")
     private val THEME_ID = stringPreferencesKey("themeId")
     private val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
     private val FONT_ID = stringPreferencesKey("fontId")
     private val AUTO_SILENT_ENABLED = booleanPreferencesKey("auto_silent_enabled")
-    private val IQAMA_ENABLED = booleanPreferencesKey("iqama_enabled")
     private val MINUTES_BEFORE_IQAMA = intPreferencesKey("minutes_before_iqama")
     private val IQAMA_NOTIFICATION_TEXT = stringPreferencesKey("iqama_notification_text")
     private val USE_24_HOUR_FORMAT = booleanPreferencesKey("use_24_hour_format")
@@ -54,6 +58,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
 
     // --- State Flows ---
+    private val _dndEnabled = MutableStateFlow(false)
+    val dndEnabled = _dndEnabled.asStateFlow()
+
+    private val _dndStartTime = MutableStateFlow("22:00")
+    val dndStartTime = _dndStartTime.asStateFlow()
+
+    private val _dndEndTime = MutableStateFlow("07:00")
+    val dndEndTime = _dndEndTime.asStateFlow()
+
+    private val _showGeneralTimes = MutableStateFlow(true)
+    val showGeneralTimes = _showGeneralTimes.asStateFlow()
+
+    private val _showSpecificTimes = MutableStateFlow(true)
+    val showSpecificTimes = _showSpecificTimes.asStateFlow()
+
     private val _themeId = MutableStateFlow("system")
     val themeId = _themeId.asStateFlow()
 
@@ -72,8 +91,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _prayerMinutesAfter = MutableStateFlow<Map<PrayerTime, Int>>(emptyMap())
     val prayerMinutesAfter = _prayerMinutesAfter.asStateFlow()
 
-    private val _iqamaEnabled = MutableStateFlow(false)
-    val iqamaEnabled = _iqamaEnabled.asStateFlow()
+    private val _prayerIqamaEnabled = MutableStateFlow<Map<PrayerTime, Boolean>>(emptyMap())
+    val prayerIqamaEnabled = _prayerIqamaEnabled.asStateFlow()
 
     private val _minutesBeforeIqama = MutableStateFlow(10)
     val minutesBeforeIqama = _minutesBeforeIqama.asStateFlow()
@@ -122,6 +141,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val settings = context.dataStore.data.first()
 
+            _dndEnabled.value = settings[DND_ENABLED] ?: false
+            _dndStartTime.value = settings[DND_START_TIME] ?: "22:00"
+            _dndEndTime.value = settings[DND_END_TIME] ?: "07:00"
+            _showGeneralTimes.value = settings[SHOW_GENERAL_TIMES] ?: true
+            _showSpecificTimes.value = settings[SHOW_SPECIFIC_TIMES] ?: true
             _themeId.value = settings[THEME_ID] ?: "system"
             _fontId.value = settings[FONT_ID] ?: "estedad"
             _autoSilentEnabled.value = settings[AUTO_SILENT_ENABLED] ?: false
@@ -130,25 +154,28 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val beforeMap = mutableMapOf<PrayerTime, Int>()
             val afterMap = mutableMapOf<PrayerTime, Int>()
             val beforeAdhanMap = mutableMapOf<PrayerTime, Int>()
+            val iqamaEnabledMap = mutableMapOf<PrayerTime, Boolean>()
 
             PrayerTime.entries.forEach { prayer ->
                 val enabledKey = booleanPreferencesKey("silent_enabled_${prayer.id}")
                 val beforeKey = intPreferencesKey("minutes_before_silent_${prayer.id}")
                 val afterKey = intPreferencesKey("minutes_after_silent_${prayer.id}")
                 val beforeAdhanKey = intPreferencesKey("minutes_before_adhan_${prayer.id}")
+                val iqamaEnabledKey = booleanPreferencesKey("iqama_enabled_${prayer.id}")
 
                 enabledMap[prayer] = settings[enabledKey] ?: false
                 beforeMap[prayer] = settings[beforeKey] ?: 10
                 afterMap[prayer] = settings[afterKey] ?: 10
                 beforeAdhanMap[prayer] = settings[beforeAdhanKey] ?: 0
+                iqamaEnabledMap[prayer] = settings[iqamaEnabledKey] ?: false
             }
 
             _prayerSilentEnabled.value = enabledMap
             _prayerMinutesBefore.value = beforeMap
             _prayerMinutesAfter.value = afterMap
             _prayerMinutesBeforeAdhan.value = beforeAdhanMap
+            _prayerIqamaEnabled.value = iqamaEnabledMap
 
-            _iqamaEnabled.value = settings[IQAMA_ENABLED] ?: false
             _minutesBeforeIqama.value = settings[MINUTES_BEFORE_IQAMA] ?: 10
 
             // متن نوتیف اقامه
@@ -183,13 +210,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             context.dataStore.edit { settings ->
                 settings[key] = sound
             }
-            notifyWidgets()
             PrayerForegroundService.scheduleAlarms(context)
         }
     }
 
     // --- Update Functions ---
-    private fun notifyWidgets() {
+    private fun notifyWidgetsAndNotification() {
+        PrayerForegroundService.update(context)
         val widgetManager = AppWidgetManager.getInstance(context)
         listOf(
             ModernWidgetProvider::class.java,
@@ -207,6 +234,46 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateDndEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { it[DND_ENABLED] = enabled }
+            _dndEnabled.value = enabled
+            PrayerForegroundService.scheduleDnd(context)
+        }
+    }
+
+    fun updateDndStartTime(time: String) {
+        viewModelScope.launch {
+            context.dataStore.edit { it[DND_START_TIME] = time }
+            _dndStartTime.value = time
+            PrayerForegroundService.scheduleDnd(context)
+        }
+    }
+
+    fun updateDndEndTime(time: String) {
+        viewModelScope.launch {
+            context.dataStore.edit { it[DND_END_TIME] = time }
+            _dndEndTime.value = time
+            PrayerForegroundService.scheduleDnd(context)
+        }
+    }
+
+    fun updateShowGeneralTimes(show: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { it[SHOW_GENERAL_TIMES] = show }
+            _showGeneralTimes.value = show
+            notifyWidgetsAndNotification()
+        }
+    }
+
+    fun updateShowSpecificTimes(show: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { it[SHOW_SPECIFIC_TIMES] = show }
+            _showSpecificTimes.value = show
+            notifyWidgetsAndNotification()
+        }
+    }
+
     fun updateThemeId(newThemeId: String) {
         viewModelScope.launch {
             context.dataStore.edit {
@@ -214,7 +281,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 it[IS_DARK_THEME] = newThemeId == "dark"
             }
             _themeId.value = newThemeId
-            notifyWidgets()
+            notifyWidgetsAndNotification()
         }
     }
 
@@ -222,7 +289,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             context.dataStore.edit { it[FONT_ID] = newFontId }
             _fontId.value = newFontId
-            notifyWidgets()
+            notifyWidgetsAndNotification()
         }
     }
 
@@ -275,12 +342,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun updateIqamaEnabled(isEnabled: Boolean) {
+    fun updatePrayerIqamaEnabled(prayer: PrayerTime, isEnabled: Boolean) {
         viewModelScope.launch {
+            val key = booleanPreferencesKey("iqama_enabled_${prayer.id}")
             context.dataStore.edit { settings ->
-                settings[IQAMA_ENABLED] = isEnabled
+                settings[key] = isEnabled
             }
-            _iqamaEnabled.value = isEnabled
+            _prayerIqamaEnabled.value = _prayerIqamaEnabled.value.toMutableMap().apply {
+                this[prayer] = isEnabled
+            }
             PrayerForegroundService.scheduleAlarms(context)
         }
     }
@@ -326,7 +396,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 settings[USE_24_HOUR_FORMAT] = is24Hour
             }
             _is24HourFormat.value = is24Hour
-            notifyWidgets()
+            notifyWidgetsAndNotification()
         }
     }
 
@@ -336,7 +406,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 settings[USE_PERSIAN_NUMBERS] = usePersian
             }
             _usePersianNumbers.value = usePersian
-            notifyWidgets()
+            notifyWidgetsAndNotification()
         }
     }
 
@@ -355,7 +425,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 settings[USE_NUMERIC_DATE_FORMAT_WIDGET] = useNumeric
             }
             _useNumericDateFormatWidget.value = useNumeric
-            notifyWidgets()
+            notifyWidgetsAndNotification()
         }
     }
 
@@ -365,7 +435,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 settings[USE_NUMERIC_DATE_FORMAT_NOTIFICATION] = useNumeric
             }
             _useNumericDateFormatNotification.value = useNumeric
-            PrayerForegroundService.scheduleAlarms(context)
+            PrayerForegroundService.update(context)
         }
     }
 }
