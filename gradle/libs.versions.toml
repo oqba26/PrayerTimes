@@ -1,32 +1,34 @@
 [versions]
-kotlin = "1.9.22"
-agp = "8.5.0"
-composeCompiler = "1.5.10"
+kotlin = "2.0.0"
+agp = "8.6.0"
 composeBom = "2024.06.00"
 coreKtx = "1.13.1"
-appcompat = "1.7.0"
-material = "1.12.0"
-lifecycle = "2.8.4"
+appcompat = "1.7.1"
+material = "1.13.0"
+lifecycle = "2.10.0"
 activityCompose = "1.9.1"
-navigationCompose = "2.7.7"
-coroutines = "1.8.1"
-gson = "2.10.1"
-workManager = "2.9.1"
-desugarLibs = "2.0.4"
-glance = "1.1.0"
+navigationCompose = "2.9.6"
+coroutines = "1.10.2"
+gson = "2.13.2"
+workManager = "2.11.0"
+desugarLibs = "2.1.5"
+glance = "1.1.1"
 benchmark = "1.2.4"
 junit = "4.13.2"
 junitExt = "1.2.1"
 espressoCore = "3.6.1"
-ksp = "1.9.22-1.0.17"
-room = "2.6.1"
-datastore = "1.1.1"
+ksp = "2.0.0-1.0.21"
+room = "2.8.4"
+datastore = "1.2.0"
+coilCompose = "2.6.0"
+playServicesLocation = "21.3.0"
 
 [libraries]
 # AndroidX Core
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 google-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 
 # Lifecycle
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
@@ -40,6 +42,9 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+
+# Image Loading
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }
 
 # Navigation
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
@@ -57,6 +62,7 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 google-gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 android-desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarLibs" }
+playservices-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
 # Glance / Benchmark
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
@@ -78,3 +84,4 @@ androidLibrary     = { id = "com.android.library",     version.ref = "agp" }
 kotlinAndroid      = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinParcelize    = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
 ksp                = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotlin-compose     = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
