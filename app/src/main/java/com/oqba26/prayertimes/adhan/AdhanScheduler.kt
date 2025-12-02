@@ -18,8 +18,10 @@ import com.oqba26.prayertimes.services.AdhanPlayerService
 import com.oqba26.prayertimes.utils.DateUtils
 import com.oqba26.prayertimes.utils.PrayerUtils
 import com.oqba26.prayertimes.viewmodels.dataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -54,7 +56,7 @@ object AdhanScheduler {
     private const val SILENT_REQ_MAGHRIB_END = 408
     private const val SILENT_REQ_ISHA_START = 409
     private const val SILENT_REQ_ISHA_END = 410
-    
+
     private const val CANCEL_IQAMA_REQ_OFFSET = 1000
 
     private val fmt24 = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
@@ -105,9 +107,6 @@ object AdhanScheduler {
                 val iqamaMaghribEnabled = ds[booleanPreferencesKey("iqama_enabled_maghrib")] ?: false
                 val iqamaIshaEnabled = ds[booleanPreferencesKey("iqama_enabled_isha")] ?: false
                 val iqamaOffset = ds[intPreferencesKey("minutes_before_iqama")] ?: 0
-
-                val isDarkTheme = ds[booleanPreferencesKey("is_dark_theme")] ?: false
-                val fontId = ds[stringPreferencesKey("fontId")] ?: "estedad"
             }
         }
 
@@ -122,30 +121,99 @@ object AdhanScheduler {
         val isha = findTime(detailedPrayers, "isha", "عشا", "عشاء")
 
         fajr?.let {
-            scheduleExact(context, REQ_FAJR, "fajr", it, settings.fajrAdhanSound, settings.fajrMinutesBeforeAdhan, settings.autoSilentEnabled && settings.fajrSilent, settings.fajrMinutesBefore, settings.fajrMinutesAfter)
+            scheduleExact(
+                context,
+                REQ_FAJR,
+                "fajr",
+                it,
+                settings.fajrAdhanSound,
+                settings.fajrMinutesBeforeAdhan,
+                settings.autoSilentEnabled && settings.fajrSilent,
+                settings.fajrMinutesBefore,
+                settings.fajrMinutesAfter
+            )
         }
         dhuhr?.let {
-            scheduleExact(context, REQ_DHUHR, "dhuhr", it, settings.dhuhrAdhanSound, settings.dhuhrMinutesBeforeAdhan, settings.autoSilentEnabled && settings.dhuhrSilent, settings.dhuhrMinutesBefore, settings.dhuhrMinutesAfter)
+            scheduleExact(
+                context,
+                REQ_DHUHR,
+                "dhuhr",
+                it,
+                settings.dhuhrAdhanSound,
+                settings.dhuhrMinutesBeforeAdhan,
+                settings.autoSilentEnabled && settings.dhuhrSilent,
+                settings.dhuhrMinutesBefore,
+                settings.dhuhrMinutesAfter
+            )
         }
         asr?.let {
-            scheduleExact(context, REQ_ASR, "asr", it, settings.asrAdhanSound, settings.asrMinutesBeforeAdhan, settings.autoSilentEnabled && settings.asrSilent, settings.asrMinutesBefore, settings.asrMinutesAfter)
+            scheduleExact(
+                context,
+                REQ_ASR,
+                "asr",
+                it,
+                settings.asrAdhanSound,
+                settings.asrMinutesBeforeAdhan,
+                settings.autoSilentEnabled && settings.asrSilent,
+                settings.asrMinutesBefore,
+                settings.asrMinutesAfter
+            )
         }
         maghrib?.let {
-            scheduleExact(context, REQ_MAGHRIB, "maghrib", it, settings.maghribAdhanSound, settings.maghribMinutesBeforeAdhan, settings.autoSilentEnabled && settings.maghribSilent, settings.maghribMinutesBefore, settings.maghribMinutesAfter)
+            scheduleExact(
+                context,
+                REQ_MAGHRIB,
+                "maghrib",
+                it,
+                settings.maghribAdhanSound,
+                settings.maghribMinutesBeforeAdhan,
+                settings.autoSilentEnabled && settings.maghribSilent,
+                settings.maghribMinutesBefore,
+                settings.maghribMinutesAfter
+            )
         }
         isha?.let {
-            scheduleExact(context, REQ_ISHA, "isha", it, settings.ishaAdhanSound, settings.ishaMinutesBeforeAdhan, settings.autoSilentEnabled && settings.ishaSilent, settings.ishaMinutesBefore, settings.ishaMinutesAfter)
+            scheduleExact(
+                context,
+                REQ_ISHA,
+                "isha",
+                it,
+                settings.ishaAdhanSound,
+                settings.ishaMinutesBeforeAdhan,
+                settings.autoSilentEnabled && settings.ishaSilent,
+                settings.ishaMinutesBefore,
+                settings.ishaMinutesAfter
+            )
         }
 
+        // --- زمان‌بندی اعلان اقامه ---
         if (settings.iqamaOffset > 0) {
             val offset = settings.iqamaOffset.toLong()
-            val isDarkTheme = settings.isDarkTheme
-            val fontId = settings.fontId
-            if (settings.iqamaFajrEnabled) detailedPrayers["صبح"]?.let { scheduleIqama(context, IQAMA_REQ_FAJR, "fajr", it, offset, isDarkTheme, fontId) }
-            if (settings.iqamaDhuhrEnabled) detailedPrayers["ظهر"]?.let { scheduleIqama(context, IQAMA_REQ_DHUHR, "dhuhr", it, offset, isDarkTheme, fontId) }
-            if (settings.iqamaAsrEnabled) detailedPrayers["عصر"]?.let { scheduleIqama(context, IQAMA_REQ_ASR, "asr", it, offset, isDarkTheme, fontId) }
-            if (settings.iqamaMaghribEnabled) detailedPrayers["مغرب"]?.let { scheduleIqama(context, IQAMA_REQ_MAGHRIB, "maghrib", it, offset, isDarkTheme, fontId) }
-            if (settings.iqamaIshaEnabled) detailedPrayers["عشاء"]?.let { scheduleIqama(context, IQAMA_REQ_ISHA, "isha", it, offset, isDarkTheme, fontId) }
+            if (settings.iqamaFajrEnabled) {
+                detailedPrayers["صبح"]?.let {
+                    scheduleIqama(context, IQAMA_REQ_FAJR, "fajr", it, offset)
+                }
+            }
+            if (settings.iqamaDhuhrEnabled) {
+                detailedPrayers["ظهر"]?.let {
+                    scheduleIqama(context, IQAMA_REQ_DHUHR, "dhuhr", it, offset)
+                }
+            }
+            if (settings.iqamaAsrEnabled) {
+                detailedPrayers["عصر"]?.let {
+                    scheduleIqama(context, IQAMA_REQ_ASR, "asr", it, offset)
+                }
+            }
+            if (settings.iqamaMaghribEnabled) {
+                detailedPrayers["مغرب"]?.let {
+                    scheduleIqama(context, IQAMA_REQ_MAGHRIB, "maghrib", it, offset)
+                }
+            }
+            if (settings.iqamaIshaEnabled) {
+                detailedPrayers["عشاء"]?.let {
+                    scheduleIqama(context, IQAMA_REQ_ISHA, "isha", it, offset)
+                }
+            }
         }
 
         scheduleMidnightReschedule(context)
@@ -168,7 +236,17 @@ object AdhanScheduler {
     }
 
     @SuppressLint("ScheduleExactAlarm")
-    private fun scheduleExact(context: Context, reqCode: Int, prayerId: String, timeStr: String, adhanSound: String, minutesBeforeAdhan: Int, enableSilentMode: Boolean, minutesBefore: Int, minutesAfter: Int) {
+    private fun scheduleExact(
+        context: Context,
+        reqCode: Int,
+        prayerId: String,
+        timeStr: String,
+        adhanSound: String,
+        minutesBeforeAdhan: Int,
+        enableSilentMode: Boolean,
+        minutesBefore: Int,
+        minutesAfter: Int
+    ) {
         val prayerTime = parseTimeFlexible(timeStr)
         val adhanTime = prayerTime.minusMinutes(minutesBeforeAdhan.toLong())
         val triggerAt = resolveTriggerMillis(adhanTime.format(fmt24))
@@ -182,12 +260,24 @@ object AdhanScheduler {
         val pi = PendingIntent.getBroadcast(context, reqCode, intent, flags)
         val am = context.getSystemService<AlarmManager>()!!
 
-        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            ?: Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER); setPackage(context.packageName) }
-        val showIntent = PendingIntent.getActivity(context, reqCode, launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val launch =
+            context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?: Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                    setPackage(context.packageName)
+                }
+        val showIntent = PendingIntent.getActivity(
+            context,
+            reqCode,
+            launch,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
-            android.util.Log.w(TAG, "SCHEDULE_EXACT_ALARM not granted; will try to schedule Adhan anyway (may be inexact).")
+            android.util.Log.w(
+                TAG,
+                "SCHEDULE_EXACT_ALARM not granted; will try to schedule Adhan anyway (may be inexact)."
+            )
         }
 
         am.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showIntent), pi)
@@ -198,7 +288,13 @@ object AdhanScheduler {
     }
 
     @SuppressLint("ScheduleExactAlarm")
-    private fun scheduleIqama(context: Context, @Suppress("unused") reqCode: Int, prayerName: String, timeStr: String, offsetMinutes: Long, isDarkTheme: Boolean, fontId: String) {
+    private fun scheduleIqama(
+        context: Context,
+        @Suppress("unused") reqCode: Int,
+        prayerName: String,
+        timeStr: String,
+        offsetMinutes: Long
+    ) {
         val prayerTime = parseTimeFlexible(timeStr)
         val iqamaStartTime = prayerTime.minusMinutes(offsetMinutes)
         val iqamaStartMillis = resolveTriggerMillis(iqamaStartTime.format(fmt24))
@@ -207,38 +303,61 @@ object AdhanScheduler {
         if (iqamaStartMillis < System.currentTimeMillis()) return // Don't schedule for past times
 
         val am = context.getSystemService<AlarmManager>()!!
-        val notificationId = IqamaAlarmReceiver.DEFAULT_NOTIFICATION_ID + prayerName.hashCode()
+        val notificationId =
+            IqamaAlarmReceiver.DEFAULT_NOTIFICATION_ID + prayerName.hashCode()
 
-        // Intent to start/update the iqama notification
+        // Intent برای شروع/آپدیت نوتیف اقامه
         val updateIntent = Intent(context, IqamaAlarmReceiver::class.java).apply {
             action = IqamaAlarmReceiver.ACTION_UPDATE_IQAMA
             putExtra("PRAYER_NAME", prayerName)
             putExtra("PRAYER_TIME", timeStr)
-            putExtra(IqamaAlarmReceiver.EXTRA_IS_DARK_THEME, isDarkTheme)
-            putExtra(IqamaAlarmReceiver.EXTRA_FONT_ID, fontId)
+            // تم و فونت دیگر اینجا ست نمی‌شوند؛
+            // خود Receiver هر بار از DataStore می‌خواند.
         }
-        val updatePi = PendingIntent.getBroadcast(context, notificationId, updateIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val updatePi = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            updateIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
-        // Intent to cancel the iqama notification at prayer time
+        // Intent برای لغو نوتیف اقامه در وقت نماز
         val cancelIntent = Intent(context, IqamaAlarmReceiver::class.java).apply {
             action = IqamaAlarmReceiver.ACTION_CANCEL_IQAMA
             putExtra(IqamaAlarmReceiver.EXTRA_NOTIFICATION_ID, notificationId)
         }
-        val cancelPi = PendingIntent.getBroadcast(context, notificationId + CANCEL_IQAMA_REQ_OFFSET, cancelIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val cancelPi = PendingIntent.getBroadcast(
+            context,
+            notificationId + CANCEL_IQAMA_REQ_OFFSET,
+            cancelIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
-                android.util.Log.w(TAG, "SCHEDULE_EXACT_ALARM not granted for Iqama; will try to schedule anyway (may be inexact).")
+                android.util.Log.w(
+                    TAG,
+                    "SCHEDULE_EXACT_ALARM not granted for Iqama; will try to schedule anyway (may be inexact)."
+                )
             }
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, iqamaStartMillis, updatePi)
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, prayerMillis, cancelPi)
         }
-        
-        android.util.Log.d(TAG, "Scheduled Iqama for $prayerName at ${java.util.Date(iqamaStartMillis)}")
+
+        android.util.Log.d(
+            TAG,
+            "Scheduled Iqama for $prayerName at ${java.util.Date(iqamaStartMillis)}"
+        )
     }
 
     @SuppressLint("ScheduleExactAlarm")
-    private fun scheduleSilent(context: Context, prayerId: String, timeStr: String, minutesBefore: Int, minutesAfter: Int) {
+    private fun scheduleSilent(
+        context: Context,
+        prayerId: String,
+        timeStr: String,
+        minutesBefore: Int,
+        minutesAfter: Int
+    ) {
         val prayerTime = parseTimeFlexible(timeStr)
         val startTime = prayerTime.minusMinutes(minutesBefore.toLong())
         val endTime = prayerTime.plusMinutes(minutesAfter.toLong())
@@ -246,19 +365,38 @@ object AdhanScheduler {
         val startTrigger = resolveTriggerMillis(startTime.format(fmt24))
         val endTrigger = resolveTriggerMillis(endTime.format(fmt24))
 
-        val startIntent = Intent(context, SilentModeReceiver::class.java).apply { action = SilentModeReceiver.ACTION_SILENT; putExtra("PRAYER_ID", prayerId) }
-        val endIntent = Intent(context, SilentModeReceiver::class.java).apply { action = SilentModeReceiver.ACTION_UNSILENT; putExtra("PRAYER_ID", prayerId) }
+        val startIntent = Intent(context, SilentModeReceiver::class.java).apply {
+            action = SilentModeReceiver.ACTION_SILENT
+            putExtra("PRAYER_ID", prayerId)
+        }
+        val endIntent = Intent(context, SilentModeReceiver::class.java).apply {
+            action = SilentModeReceiver.ACTION_UNSILENT
+            putExtra("PRAYER_ID", prayerId)
+        }
 
         val startReqCode = getSilentReqCode(prayerId, true)
         val endReqCode = getSilentReqCode(prayerId, false)
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        val startPi = PendingIntent.getBroadcast(context, startReqCode, startIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val endPi = PendingIntent.getBroadcast(context, endReqCode, endIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val startPi = PendingIntent.getBroadcast(
+            context,
+            startReqCode,
+            startIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val endPi = PendingIntent.getBroadcast(
+            context,
+            endReqCode,
+            endIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
-                android.util.Log.w(TAG, "SCHEDULE_EXACT_ALARM not granted; will try to schedule silent mode anyway (may be inexact).")
+                android.util.Log.w(
+                    TAG,
+                    "SCHEDULE_EXACT_ALARM not granted; will try to schedule silent mode anyway (may be inexact)."
+                )
             }
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startTrigger, startPi)
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endTrigger, endPi)
@@ -304,7 +442,11 @@ object AdhanScheduler {
     }
 
     private fun parseTimeFlexible(s: String): LocalTime {
-        val t0 = toLatinDigits(s.trim()).replace("ق.ظ", "AM", true).replace("ب.ظ", "PM", true).replace("ص", "AM", true).replace("م", "PM", true)
+        val t0 = toLatinDigits(s.trim())
+            .replace("ق.ظ", "AM", true)
+            .replace("ب.ظ", "PM", true)
+            .replace("ص", "AM", true)
+            .replace("م", "PM", true)
         val t = t0.uppercase(Locale.ROOT)
         runCatching { return LocalTime.parse(t, fmt24) }
         runCatching { return LocalTime.parse(t, fmt12) }
@@ -329,11 +471,20 @@ object AdhanScheduler {
             SILENT_REQ_MAGHRIB_START, SILENT_REQ_MAGHRIB_END,
             SILENT_REQ_ISHA_START, SILENT_REQ_ISHA_END
         ).flatMap { listOf(it, it + CANCEL_IQAMA_REQ_OFFSET) }
-        val intentClasses = listOf(AdhanAlarmReceiver::class.java, IqamaAlarmReceiver::class.java, SilentModeReceiver::class.java)
+        val intentClasses = listOf(
+            AdhanAlarmReceiver::class.java,
+            IqamaAlarmReceiver::class.java,
+            SilentModeReceiver::class.java
+        )
 
         reqCodes.forEach { code ->
             intentClasses.forEach { intentClass ->
-                val pi = PendingIntent.getBroadcast(context, code, Intent(context, intentClass), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+                val pi = PendingIntent.getBroadcast(
+                    context,
+                    code,
+                    Intent(context, intentClass),
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                )
                 if (pi != null) am.cancel(pi)
             }
         }
@@ -347,13 +498,86 @@ object AdhanScheduler {
         var target = LocalDateTime.of(LocalDate.now().plusDays(1), LocalTime.of(0, 1))
         if (target.isBefore(now)) target = now.plusMinutes(2)
 
-        val intent = Intent(context, AdhanAlarmReceiver::class.java).apply { putExtra("PRAYER_ID", "noop") }
-        val pi = PendingIntent.getBroadcast(context, REQ_RESCHEDULE_MIDNIGHT, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val intent = Intent(context, AdhanAlarmReceiver::class.java).apply {
+            putExtra("PRAYER_ID", "noop")
+        }
+        val pi = PendingIntent.getBroadcast(
+            context,
+            REQ_RESCHEDULE_MIDNIGHT,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val whenMs = target.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
-            android.util.Log.w(TAG, "SCHEDULE_EXACT_ALARM not granted for midnight reschedule; will try anyway (may be inexact).")
+            android.util.Log.w(
+                TAG,
+                "SCHEDULE_EXACT_ALARM not granted for midnight reschedule; will try anyway (may be inexact)."
+            )
         }
         am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
+    }
+
+    // ------------------------
+    // رفرش آنی نوتیف اقامه
+    // ------------------------
+    /**
+     * این تابع وقتی صدا زده شود، برای نمازهایی که الان در بازه‌ی
+     * [زمان شروع اقامه تا خود نماز] هستند، یک UPDATE_IQAMA می‌فرستد
+     * تا نوتیف اقامه‌ی فعلی فوراً با تم/فونت جدید رفرش شود.
+     */
+    suspend fun refreshIqamaNotifications(context: Context) {
+        withContext(Dispatchers.IO) {
+            val ds = context.dataStore.data.first()
+
+            val iqamaOffset = ds[intPreferencesKey("minutes_before_iqama")] ?: 0
+            if (iqamaOffset <= 0) return@withContext
+
+            val iqamaFajrEnabled = ds[booleanPreferencesKey("iqama_enabled_fajr")] ?: false
+            val iqamaDhuhrEnabled = ds[booleanPreferencesKey("iqama_enabled_dhuhr")] ?: false
+            val iqamaAsrEnabled = ds[booleanPreferencesKey("iqama_enabled_asr")] ?: false
+            val iqamaMaghribEnabled = ds[booleanPreferencesKey("iqama_enabled_maghrib")] ?: false
+            val iqamaIshaEnabled = ds[booleanPreferencesKey("iqama_enabled_isha")] ?: false
+
+            if (!iqamaFajrEnabled && !iqamaDhuhrEnabled && !iqamaAsrEnabled &&
+                !iqamaMaghribEnabled && !iqamaIshaEnabled
+            ) {
+                return@withContext
+            }
+
+            val detailedPrayers =
+                PrayerUtils.loadDetailedPrayerTimes(context, DateUtils.getCurrentDate())
+            val now = LocalDateTime.now()
+            val offsetMinutes = iqamaOffset.toLong()
+
+            fun maybeRefresh(prayerKey: String, englishName: String, enabled: Boolean) {
+                if (!enabled) return
+                val timeStr = detailedPrayers[prayerKey] ?: return
+
+                val prayerTime = parseTimeFlexible(timeStr)
+                var prayerDateTime = LocalDateTime.of(LocalDate.now(), prayerTime)
+                if (prayerDateTime.isBefore(now)) {
+                    prayerDateTime = prayerDateTime.plusDays(1)
+                }
+                val iqamaStartDateTime = prayerDateTime.minusMinutes(offsetMinutes)
+
+                // فقط اگر الان بین شروع اقامه و خود نماز هستیم
+                if (now.isBefore(iqamaStartDateTime)) return   // هنوز شروع نشده
+                if (!now.isBefore(prayerDateTime)) return      // از وقت نماز گذشته
+
+                val intent = Intent(context, IqamaAlarmReceiver::class.java).apply {
+                    action = IqamaAlarmReceiver.ACTION_UPDATE_IQAMA
+                    putExtra("PRAYER_NAME", englishName)
+                    putExtra("PRAYER_TIME", timeStr)
+                }
+                context.sendBroadcast(intent)
+            }
+
+            maybeRefresh("صبح", "fajr", iqamaFajrEnabled)
+            maybeRefresh("ظهر", "dhuhr", iqamaDhuhrEnabled)
+            maybeRefresh("عصر", "asr", iqamaAsrEnabled)
+            maybeRefresh("مغرب", "maghrib", iqamaMaghribEnabled)
+            maybeRefresh("عشاء", "isha", iqamaIshaEnabled)
+        }
     }
 }

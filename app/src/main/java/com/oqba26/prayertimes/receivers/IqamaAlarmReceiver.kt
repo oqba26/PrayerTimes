@@ -23,6 +23,7 @@ import androidx.core.content.getSystemService
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.toColorInt
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.oqba26.prayertimes.R
 import com.oqba26.prayertimes.services.NotificationService
 import com.oqba26.prayertimes.utils.DateUtils
@@ -42,8 +43,8 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
         const val ACTION_UPDATE_IQAMA = "com.oqba26.prayertimes.UPDATE_IQAMA"
         const val ACTION_CANCEL_IQAMA = "com.oqba26.prayertimes.CANCEL_IQAMA"
         const val EXTRA_NOTIFICATION_ID = "notification_id"
-        const val EXTRA_IS_DARK_THEME = "is_dark_theme"
-        const val EXTRA_FONT_ID = "font_id"
+        const val EXTRA_IS_DARK_THEME = "is_dark_theme"      // برای سازگاری نگه داشته شده، اما دیگر استفاده نمی‌شود
+        const val EXTRA_FONT_ID = "font_id"                  // برای سازگاری نگه داشته شده، اما دیگر استفاده نمی‌شود
         const val DEFAULT_NOTIFICATION_ID = 430
         private const val DELETE_IQAMA_REQ_OFFSET = 2000
     }
@@ -58,11 +59,14 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
                         cancelNotification(context, intent)
                     }
                     else -> {
-                        val prayerNameEnglish = intent?.getStringExtra("PRAYER_NAME") ?: return@launch
-                        val prayerTimeStr = intent.getStringExtra("PRAYER_TIME") ?: return@launch
-                        val isDarkTheme = intent.getBooleanExtra(EXTRA_IS_DARK_THEME, false)
-                        val fontId = intent.getStringExtra(EXTRA_FONT_ID) ?: "estedad"
-                        updateNotification(context, prayerNameEnglish, prayerTimeStr, isDarkTheme, fontId)
+                        val prayerNameEnglish =
+                            intent?.getStringExtra("PRAYER_NAME") ?: return@launch
+                        val prayerTimeStr =
+                            intent.getStringExtra("PRAYER_TIME") ?: return@launch
+
+                        // تم و فونت را دیگر از Intent نمی‌خوانیم؛
+                        // هر بار داخل updateNotification از DataStore خوانده می‌شود.
+                        updateNotification(context, prayerNameEnglish, prayerTimeStr)
                     }
                 }
             } finally {
@@ -78,7 +82,12 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
             val updateIntent = Intent(context, IqamaAlarmReceiver::class.java).apply {
                 action = ACTION_UPDATE_IQAMA
             }
-            val updatePi = PendingIntent.getBroadcast(context, notificationId, updateIntent, PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            val updatePi = PendingIntent.getBroadcast(
+                context,
+                notificationId,
+                updateIntent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
             updatePi?.let { alarmManager.cancel(it) }
 
             NotificationManagerCompat.from(context).cancel(notificationId)
@@ -86,8 +95,21 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
     }
 
     @SuppressLint("MissingPermission")
-    private suspend fun updateNotification(context: Context, prayerNameEnglish: String, prayerTimeStr: String, isDarkTheme: Boolean, fontId: String) {
+    private suspend fun updateNotification(
+        context: Context,
+        prayerNameEnglish: String,
+        prayerTimeStr: String
+    ) {
         val prayerTime = PrayerUtils.parseTimeSafely(prayerTimeStr) ?: return
+
+        // --- تنظیمات تم / فونت / اعداد را همیشه از DataStore بگیر ---
+        val preferences = context.dataStore.data.first()
+        val usePersianNumbers =
+            preferences[booleanPreferencesKey("use_persian_numbers")] ?: true
+        val isDarkTheme =
+            preferences[booleanPreferencesKey("is_dark_theme")] ?: false
+        val fontId =
+            preferences[stringPreferencesKey("fontId")] ?: "estedad"
 
         val now = ZonedDateTime.now()
         var prayerDateTime = now.with(prayerTime)
@@ -104,9 +126,6 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
         }
 
         val remainingMinutes = ceil(remainingMillis.toDouble() / 60000).toLong()
-
-        val preferences = context.dataStore.data.first()
-        val usePersianNumbers = preferences[booleanPreferencesKey("use_persian_numbers")] ?: true
 
         val prayerNameArabic = when (prayerNameEnglish.lowercase()) {
             "fajr" -> "صبح"
@@ -137,68 +156,104 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
         } ?: Typeface.DEFAULT
 
         val textColor: Int
-        val titleColor: Int
         val backgroundColor: Int
 
         if (isDarkTheme) {
-            titleColor = Color.WHITE
-            textColor = "#80DEEA".toColorInt()
+            textColor = Color.WHITE // یا همون رنگ قبلی اگه دوست داری
             backgroundColor = "#212121".toColorInt() // Dark gray background
         } else {
-            titleColor = Color.BLACK
-            textColor = "#0D47A1".toColorInt()
+            textColor = Color.BLACK
             backgroundColor = Color.WHITE
         }
 
         val displayMetrics = context.resources.displayMetrics
-        val imageWidth = displayMetrics.widthPixels - (2 * 16 * displayMetrics.density).toInt()
+        val imageWidth =
+            displayMetrics.widthPixels - (2 * 16 * displayMetrics.density).toInt()
 
-        val titleBitmap = textBitmap(context, "اقامه نماز", typeface, 18f, titleColor, imageWidth)
-        val contentBitmap = textBitmap(context, timerText, typeface, 16f, textColor, imageWidth)
+        // فقط یک متن (شمارش معکوس) و با سایز بزرگ‌تر
+        val contentBitmap = textBitmap(
+            context,
+            timerText,
+            typeface,
+            20f,           // اندازه بزرگ‌تر نسبت به قبل (قبلاً 16f بود)
+            textColor,
+            imageWidth
+        )
 
-        val remoteViews = RemoteViews(context.packageName, R.layout.iqama_notification_layout)
-        remoteViews.setInt(R.id.iqama_notification_root, "setBackgroundColor", backgroundColor)
-        remoteViews.setImageViewBitmap(R.id.iqama_title_image, titleBitmap)
+        val remoteViews =
+            RemoteViews(context.packageName, R.layout.iqama_notification_layout)
+        remoteViews.setInt(
+            R.id.iqama_notification_root,
+            "setBackgroundColor",
+            backgroundColor
+        )
+
+        // عنوان «اقامه نماز» را کاملاً مخفی کن
+        remoteViews.setViewVisibility(R.id.iqama_title_image, View.GONE)
+
+        // فقط متن اصلی را نشان بده
         remoteViews.setImageViewBitmap(R.id.iqama_text_image, contentBitmap)
-        remoteViews.setViewVisibility(R.id.iqama_timer_image, View.GONE) // Hide the extra timer view
+        remoteViews.setViewVisibility(R.id.iqama_text_image, View.VISIBLE)
 
+        // تایمر اضافی همچنان مخفی
+        remoteViews.setViewVisibility(R.id.iqama_timer_image, View.GONE)
+
+        // Intent برای حذف نوتیف با swipe یا در زمان نماز
         val deleteIntent = Intent(context, IqamaAlarmReceiver::class.java).apply {
             action = ACTION_CANCEL_IQAMA
             putExtra(EXTRA_NOTIFICATION_ID, notificationId)
         }
-        val deletePi = PendingIntent.getBroadcast(context, notificationId + DELETE_IQAMA_REQ_OFFSET, deleteIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val deletePi = PendingIntent.getBroadcast(
+            context,
+            notificationId + DELETE_IQAMA_REQ_OFFSET,
+            deleteIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
-        val builder = NotificationCompat.Builder(context, NotificationService.IQAMA_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification_icon)
-            .setCustomContentView(remoteViews)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setOnlyAlertOnce(true)
-            .setOngoing(false)
-            .setDeleteIntent(deletePi)
+        val builder =
+            NotificationCompat.Builder(context, NotificationService.IQAMA_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_icon)
+                .setCustomContentView(remoteViews)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setOnlyAlertOnce(true)
+                .setOngoing(false)
+                .setDeleteIntent(deletePi)
 
         NotificationManagerCompat.from(context).notify(notificationId, builder.build())
 
-        // Schedule next action
+        // --- زمان‌بندی آپدیت بعدی ---
         val alarmManager = context.getSystemService<AlarmManager>()!!
         if (remainingMillis > 60000) {
-            // More than 1 minute left, schedule an update for the next minute.
+            // بیشتر از یک دقیقه مانده → آپدیت در ابتدای دقیقه بعد
             val nowMillis = System.currentTimeMillis()
             val nextUpdateMillis = nowMillis - nowMillis % 60000 + 60000
-            
+
             val updateIntent = Intent(context, IqamaAlarmReceiver::class.java).apply {
                 action = ACTION_UPDATE_IQAMA
                 putExtra("PRAYER_NAME", prayerNameEnglish)
                 putExtra("PRAYER_TIME", prayerTimeStr)
-                putExtra(EXTRA_IS_DARK_THEME, isDarkTheme)
-                putExtra(EXTRA_FONT_ID, fontId)
             }
-            val updatePi = PendingIntent.getBroadcast(context, notificationId, updateIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            AlarmManagerCompat.setExactAndAllowWhileIdle(alarmManager, AlarmManager.RTC_WAKEUP, nextUpdateMillis, updatePi)
+            val updatePi = PendingIntent.getBroadcast(
+                context,
+                notificationId,
+                updateIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            AlarmManagerCompat.setExactAndAllowWhileIdle(
+                alarmManager,
+                AlarmManager.RTC_WAKEUP,
+                nextUpdateMillis,
+                updatePi
+            )
         } else {
-            // This is the last minute. Schedule the final cancellation to happen exactly at prayer time.
-            // We can reuse the same deleteIntent that is used for swiping away the notification.
-            AlarmManagerCompat.setExactAndAllowWhileIdle(alarmManager, AlarmManager.RTC_WAKEUP, prayerMillis, deletePi)
+            // کمتر از یک دقیقه مانده → لغو نهایی در زمان دقیق نماز
+            AlarmManagerCompat.setExactAndAllowWhileIdle(
+                alarmManager,
+                AlarmManager.RTC_WAKEUP,
+                prayerMillis,
+                deletePi
+            )
         }
     }
 
@@ -207,7 +262,11 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
             val channelId = NotificationService.IQAMA_CHANNEL_ID
             val nm = context.getSystemService(NotificationManager::class.java)
             if (nm.getNotificationChannel(channelId) == null) {
-                val ch = NotificationChannel(channelId, "اعلان اقامه نماز", NotificationManager.IMPORTANCE_HIGH).apply {
+                val ch = NotificationChannel(
+                    channelId,
+                    "اعلان اقامه نماز",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
                     description = "برای یادآوری زمان اقامه نماز"
                     setSound(null, null)
                     enableVibration(true)
@@ -238,7 +297,7 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
             "vazirmatn_light" -> R.font.vazirmatn_light
             "vazirmatn_medium" -> R.font.vazirmatn_medium
             "vazirmatn_regular" -> R.font.vazirmatn_regular
-            else -> R.font.estedad_regular // Fallback to a default font
+            else -> R.font.estedad_regular // Fallback
         }
     }
 }

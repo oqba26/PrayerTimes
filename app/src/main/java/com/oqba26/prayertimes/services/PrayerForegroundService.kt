@@ -103,8 +103,12 @@ class PrayerForegroundService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == Intent.ACTION_TIME_TICK) {
                 scope.launch {
-                    updateAllWidgets(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                    // ✅ اول نوتیفیکیشن رو آپدیت کن
                     updateNotification()
+
+                    // ✅ بعد ویجت‌ها رو آپدیت کن (با تأخیر کوتاه برای جلوگیری از تداخل)
+                    delay(100)
+                    updateAllWidgetsDirectly()
                 }
             }
         }
@@ -200,7 +204,7 @@ class PrayerForegroundService : Service() {
     private suspend fun handleMidnightUpdate() {
         Log.d(TAG, "Handling Midnight Update...")
         notifSelectedDate = DateUtils.getCurrentDate()
-        updateAllWidgets(ModernWidgetProvider.ACTION_DATE_CHANGED_BY_SERVICE)
+        updateAllWidgetsForDateChange()  // ✅ اسم جدید
         updateNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PrayerAlarmManager.scheduleMidnightAlarm(this)
@@ -208,11 +212,43 @@ class PrayerForegroundService : Service() {
         Log.d(TAG, "Midnight Update Finished.")
     }
 
-    private fun updateAllWidgets(action: String) {
-        updateWidget(this, ModernWidgetProvider::class.java, action)
-        updateWidget(this, LargeModernWidgetProvider::class.java, action)
+    private fun updateAllWidgetsForDateChange() {
+        updateWidget(this, ModernWidgetProvider::class.java, ModernWidgetProvider.ACTION_DATE_CHANGED_BY_SERVICE)
+        updateWidget(this, LargeModernWidgetProvider::class.java, ModernWidgetProvider.ACTION_DATE_CHANGED_BY_SERVICE)
     }
 
+    @Suppress("RedundantSuspendModifier")
+    private suspend fun updateAllWidgetsDirectly() {
+        val context = this@PrayerForegroundService
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+
+        // آپدیت ویجت کوچک
+        val smallWidgetComponent = ComponentName(context, ModernWidgetProvider::class.java)
+        val smallWidgetIds = appWidgetManager.getAppWidgetIds(smallWidgetComponent)
+
+        // آپدیت ویجت بزرگ
+        val largeWidgetComponent = ComponentName(context, LargeModernWidgetProvider::class.java)
+        val largeWidgetIds = appWidgetManager.getAppWidgetIds(largeWidgetComponent)
+
+        // فقط اگه ویجت وجود داره، broadcast بفرست
+        if (smallWidgetIds.isNotEmpty()) {
+            val intent = Intent(context, ModernWidgetProvider::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, smallWidgetIds)
+            }
+            context.sendBroadcast(intent)
+        }
+
+        if (largeWidgetIds.isNotEmpty()) {
+            val intent = Intent(context, LargeModernWidgetProvider::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, largeWidgetIds)
+            }
+            context.sendBroadcast(intent)
+        }
+    }
+
+    @Suppress("SameParameterValue")
     private fun updateWidget(context: Context, widgetClass: Class<*>, action: String) {
         val appWidgetManager = AppWidgetManager.getInstance(context)
         val componentName = ComponentName(context, widgetClass)
