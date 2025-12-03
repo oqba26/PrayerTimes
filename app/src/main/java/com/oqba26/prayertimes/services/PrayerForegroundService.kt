@@ -156,6 +156,8 @@ class PrayerForegroundService : Service() {
                     ACTION_START -> {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             PrayerAlarmManager.scheduleMidnightAlarm(this@PrayerForegroundService)
+                            // Schedule DND alarms on service start
+                            scheduleDndAlarms()
                         }
                         updateNotification()
                     }
@@ -204,10 +206,12 @@ class PrayerForegroundService : Service() {
     private suspend fun handleMidnightUpdate() {
         Log.d(TAG, "Handling Midnight Update...")
         notifSelectedDate = DateUtils.getCurrentDate()
-        updateAllWidgetsForDateChange()  // ✅ اسم جدید
+        updateAllWidgetsForDateChange()
         updateNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PrayerAlarmManager.scheduleMidnightAlarm(this)
+            // Re-schedule DND alarms for the new day
+            scheduleDndAlarms()
         }
         Log.d(TAG, "Midnight Update Finished.")
     }

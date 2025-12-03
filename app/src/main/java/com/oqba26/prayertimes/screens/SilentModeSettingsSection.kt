@@ -1,3 +1,5 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.oqba26.prayertimes.screens
 
 import android.app.NotificationManager
@@ -24,7 +26,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -191,9 +192,11 @@ private fun PrayerSilentSettingRow(
                     selectedValue = isEnabled,
                     onValueChange = { enabled ->
                         settingsViewModel.updatePrayerSilentEnabled(prayer, enabled)
-                        if (enabled) {
+                        // اگر غیرفعال شد، بخش بسته شود (چون فیلد دیگه‌ای نیست)
+                        if (!enabled) {
                             isExpanded = false
                         }
+                        // اگر فعال شد، بخش باز بماند تا زمان‌ها تنظیم شوند
                         onInteraction()
                     },
                     onInteraction = onInteraction
@@ -206,10 +209,8 @@ private fun PrayerSilentSettingRow(
                             selectedValue = before,
                             range = 0..60,
                             onValueChange = { v ->
-                                settingsViewModel.updatePrayerMinutesBefore(
-                                    prayer,
-                                    v
-                                )
+                                settingsViewModel.updatePrayerMinutesBefore(prayer, v)
+                                // این آخرین فیلد نیست، بخش باز بماند
                                 onInteraction()
                             },
                             usePersianNumbers = usePersianNumbers,
@@ -222,10 +223,9 @@ private fun PrayerSilentSettingRow(
                             selectedValue = after,
                             range = 0..60,
                             onValueChange = { v ->
-                                settingsViewModel.updatePrayerMinutesAfter(
-                                    prayer,
-                                    v
-                                )
+                                settingsViewModel.updatePrayerMinutesAfter(prayer, v)
+                                // این آخرین فیلد است، پس بخش بسته شود
+                                isExpanded = false
                                 onInteraction()
                             },
                             usePersianNumbers = usePersianNumbers,
@@ -279,15 +279,6 @@ fun SilentModeSettingsSection(
         }
     }
 
-    val allSilentEnabled by settingsViewModel.allSilentEnabled.collectAsState(initial = false)
-
-    LaunchedEffect(allSilentEnabled) {
-        if (allSilentEnabled && expanded) {
-            onToggle()
-        }
-    }
-
-
     val autoSilentEnabled by settingsViewModel.autoSilentEnabled.collectAsState()
 
     ExpandableSettingCard(
@@ -312,7 +303,7 @@ fun SilentModeSettingsSection(
             title = "فعال کردن سکوت خودکار",
             subtitle = "گوشی در زمان‌های مشخص شده برای نمازها به حالت ویبره می‌رود",
             checked = autoSilentEnabled,
-            onCheckedChange = { 
+            onCheckedChange = {
                 settingsViewModel.updateAutoSilentEnabled(it)
                 onInteraction()
             },

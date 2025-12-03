@@ -159,10 +159,10 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
         val backgroundColor: Int
 
         if (isDarkTheme) {
-            textColor = Color.WHITE // یا همون رنگ قبلی اگه دوست داری
+            textColor = "#80DEEA".toColorInt() // Turquoise Blue for dark theme
             backgroundColor = "#212121".toColorInt() // Dark gray background
         } else {
-            textColor = Color.BLACK
+            textColor = "#0D47A1".toColorInt() // Blue for light theme
             backgroundColor = Color.WHITE
         }
 
@@ -282,6 +282,7 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
         return when (fontId) {
             "estedad" -> R.font.estedad_regular
             "byekan" -> R.font.byekan
+            "sahel" -> R.font.sahel_bold // Added for sahel font
             "sahel_bold" -> R.font.sahel_bold
             "byekan_bold" -> R.font.byekan_bold
             "iraniansans" -> R.font.iraniansans

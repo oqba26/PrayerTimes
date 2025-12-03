@@ -10,9 +10,17 @@ import com.oqba26.prayertimes.services.PrayerForegroundService
 class BootAndTimeChangeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("BootAndTimeChangeRcvr", "onReceive: ${intent.action}")
-        val svc = Intent(context, PrayerForegroundService::class.java).apply {
+
+        // Schedule prayer alarms
+        val alarmsSvc = Intent(context, PrayerForegroundService::class.java).apply {
             action = PrayerForegroundService.ACTION_SCHEDULE_ALARMS
         }
-        ContextCompat.startForegroundService(context, svc)
+        ContextCompat.startForegroundService(context, alarmsSvc)
+
+        // Schedule DND alarms
+        val dndSvc = Intent(context, PrayerForegroundService::class.java).apply {
+            action = PrayerForegroundService.ACTION_SCHEDULE_DND
+        }
+        ContextCompat.startForegroundService(context, dndSvc)
     }
 }

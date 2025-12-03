@@ -61,7 +61,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -82,12 +82,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.oqba26.prayertimes.ui.AppFonts
 import com.oqba26.prayertimes.viewmodels.SettingsViewModel
 import com.oqba26.prayertimes.widget.LargeModernWidgetProvider
 import com.oqba26.prayertimes.widget.ModernWidgetProvider
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val topBarLightColor = Color(0xFF0E7490)
 private val topBarDarkColor = Color(0xFF4F378B)
@@ -458,15 +461,12 @@ fun SettingsScreen(
 
     var widgetExists by remember { mutableStateOf(hasWidget(context)) }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                widgetExists = hasWidget(context)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            delay(500L) // تاخیر نیم ثانیه برای اطمینان از ثبت ویجت
+            widgetExists = hasWidget(context)
         }
     }
 
@@ -515,8 +515,12 @@ fun SettingsScreen(
                             onClick = {
                                 onAddWidget()
                                 Toast.makeText(context, "ویجت به صفحه ی اصلی اضافه شد", Toast.LENGTH_SHORT).show()
-                                widgetExists = true
                                 generalInteractionTime = System.currentTimeMillis()
+                                // تاخیر برای چک کردن ویجت بعد از اضافه شدن
+                                coroutineScope.launch {
+                                    delay(1000L)
+                                    widgetExists = hasWidget(context)
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
@@ -569,16 +573,16 @@ fun SettingsScreen(
                     )
                     HorizontalDivider()
                     SwitchSettingRow(
-                        title = "نمایش اوقات شرعی عمومی",
-                        subtitle = "فعال‌سازی نمایش اوقات شرعی عمومی در ویجت و نوتیفیکیشن",
+                        title = "نمایش اول وقت هر نماز",
+                        subtitle = "فعال‌سازی نمایش اول وقت هر نماز در ویجت و نوتیفیکیشن",
                         checked = showGeneralTimes,
                         onCheckedChange = { settingsViewModel.updateShowGeneralTimes(it) },
                         onInteraction = { displayInteractionTime = System.currentTimeMillis() }
                     )
                     HorizontalDivider()
                     SwitchSettingRow(
-                        title = "نمایش اوقات شرعی خصوصی",
-                        subtitle = "فعال‌سازی نمایش اوقات شرعی خصوصی در ویجت و نوتیفیکیشن",
+                        title = "نمایش اوقات نماز",
+                        subtitle = "فعال‌سازی نمایش اوقات نماز در ویجت و نوتیفیکیشن",
                         checked = showSpecificTimes,
                         onCheckedChange = { settingsViewModel.updateShowSpecificTimes(it) },
                         onInteraction = { displayInteractionTime = System.currentTimeMillis() }

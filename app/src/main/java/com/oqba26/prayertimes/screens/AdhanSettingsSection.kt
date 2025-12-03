@@ -16,7 +16,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,9 +73,11 @@ fun PrayerAdhanSettingRow(
                     selectedValue = currentSound,
                     onValueChange = { sound ->
                         settingsViewModel.setAdhanSound(prayer.id, sound)
-                        if (sound != "off") {
+                        // اگر خاموش انتخاب شد، بخش بسته شود (چون فیلد دیگه‌ای نیست)
+                        if (sound == "off") {
                             isExpanded = false
                         }
+                        // اگر صدا انتخاب شد، بخش باز بماند تا زمان پخش هم تنظیم شود
                         onInteraction()
                     },
                     options = adhanSounds,
@@ -90,6 +91,8 @@ fun PrayerAdhanSettingRow(
                         range = 0..60,
                         onValueChange = { minutes ->
                             settingsViewModel.updatePrayerMinutesBeforeAdhan(prayer, minutes)
+                            // این آخرین فیلد است، پس بخش بسته شود
+                            isExpanded = false
                             onInteraction()
                         },
                         usePersianNumbers = usePersianNumbers,
@@ -112,14 +115,6 @@ fun AdhanSettingsSection(
     lastInteractionTime: Long,
     onInteraction: () -> Unit
 ) {
-    val allAdhansSet by settingsViewModel.allAdhansSet.collectAsState(initial = false)
-
-    LaunchedEffect(allAdhansSet) {
-        if (allAdhansSet && expanded) {
-            onToggle()
-        }
-    }
-
     ExpandableSettingCard(
         title = "اذان",
         expanded = expanded,
@@ -134,7 +129,7 @@ fun AdhanSettingsSection(
             }
 
             Text(
-                "برای هر نماز، صدای اذان و زمان پخش را انتخاب کنید.",
+                "برای هر نماز، صدای مؤذن و زمان پخش را انتخاب کنید.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(bottom = 8.dp)
             )

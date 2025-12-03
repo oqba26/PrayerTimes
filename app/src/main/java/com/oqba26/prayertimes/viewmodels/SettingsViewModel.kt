@@ -43,6 +43,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val DND_ENABLED = booleanPreferencesKey("dnd_enabled")
     private val DND_START_TIME = stringPreferencesKey("dnd_start_time")
     private val DND_END_TIME = stringPreferencesKey("dnd_end_time")
+
+    private val DND_DAYS = stringPreferencesKey("dnd_days")
     private val SHOW_GENERAL_TIMES = booleanPreferencesKey("show_general_times")
     private val SHOW_SPECIFIC_TIMES = booleanPreferencesKey("show_specific_times")
     private val THEME_ID = stringPreferencesKey("themeId")
@@ -71,6 +73,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val dndEndTime: StateFlow<String> =
         context.dataStore.data.map { it[DND_END_TIME] ?: "07:00" }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "07:00")
+
+    val dndDays: StateFlow<Set<Int>> =
+        context.dataStore.data.map { preferences ->
+            val daysString = preferences[DND_DAYS] ?: "0,1,2,3,4,5,6" // همه روزها پیش‌فرض
+            daysString.split(",").mapNotNull { it.toIntOrNull() }.toSet()
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), setOf(0,1,2,3,4,5,6))
     val showGeneralTimes: StateFlow<Boolean> =
         context.dataStore.data.map { it[SHOW_GENERAL_TIMES] ?: true }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -245,6 +253,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateDndEndTime(time: String) {
         viewModelScope.launch {
             context.dataStore.edit { it[DND_END_TIME] = time }
+            PrayerForegroundService.scheduleDnd(context)
+        }
+    }
+
+    fun updateDndDays(days: Set<Int>) {
+        viewModelScope.launch {
+            context.dataStore.edit { settings ->
+                settings[DND_DAYS] = days.joinToString(",")
+            }
             PrayerForegroundService.scheduleDnd(context)
         }
     }

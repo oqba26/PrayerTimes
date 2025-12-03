@@ -1,13 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- رنگ‌های مورد استفاده در ویجت -->
-    <!-- رنگ عادی متن اوقات نماز -->
-    <!-- رنگ هایلایت برای نماز بعدی (همرنگ ساعت) -->
-    <!-- رنگ ساعت -->
-    <!-- رنگ تاریخ شمسی -->
-    <!-- رنگ تاریخ قمری/میلادی -->
-    <!-- رنگ جداکننده -->
-    <!-- رنگ متن خطا -->
+    <!-- Widget Colors - Light Theme -->
+    <color name="widget_light_primary_text">#000000</color>
+    <color name="widget_light_secondary_text">#424242</color>
+    <color name="widget_light_prayer_time">#0D47A1</color>
+    <color name="widget_light_prayer_highlight">#2E7D32</color>
+    <color name="widget_light_persian_date">#0D47A1</color>
+    <color name="widget_light_nav_button">#546E7A</color>
+    <color name="widget_light_today_button">#1976D2</color>
+    <color name="widget_light_separator">#BDBDBD</color>
+
+    <!-- Widget Colors - Dark Theme -->
+    <color name="widget_dark_primary_text">#FFFFFF</color>
+    <color name="widget_dark_secondary_text">#CCCCCC</color>
+    <color name="widget_dark_prayer_time">#80DEEA</color>
+    <color name="widget_dark_prayer_highlight">#FFF59D</color>
+    <color name="widget_dark_persian_date">#80DEEA</color>
+    <color name="widget_dark_nav_button">#78909C</color>
+    <color name="widget_dark_today_button">#64B5F6</color>
+    <color name="widget_dark_separator">#424242</color>
+
     <!-- رنگ‌های اصلی که در لایوت قبلی شما برای هر نماز بود (برای مرجع، فعلا استفاده نمی‌شوند) -->
     <!-- رنگ‌های تم روشن -->
     <color name="md_theme_light_primary">#6750A4</color>
@@ -18,12 +30,4 @@
     <color name="nav_pill_bg">#546E7A</color>        <!-- پس‌زمینه قرصی Prev/Next -->
     <color name="nav_pill_today_bg">#1976D2</color>  <!-- پس‌زمینه قرصی Today -->
     <color name="nav_pill_icon">#FFFFFFFF</color>    <!-- رنگ آیکن داخل قرصی -->
-    <!-- رنگ‌های تم تاریک -->
-    <!-- رنگ متن معمولی اوقات -->
-    <!-- آبی تیره -->
-    <!-- رنگ متن و پس‌زمینه وقت بعدی (هایلایت) -->
-    <!-- سبز پررنگ -->
-    <!-- سبز ملایم -->
-    <!-- رنگ هدر تاریخ -->
-    <!-- رنگ خط جداکننده -->
 </resources>

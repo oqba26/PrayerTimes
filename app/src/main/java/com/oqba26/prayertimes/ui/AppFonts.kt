@@ -42,11 +42,7 @@ object AppFonts {
             label = "Sahel",
             family = FontFamily(Font(R.font.sahel_bold))
         ),
-        FontEntry(
-            id = "system",
-            label = "پیش‌فرض سیستم",
-            family = null
-        )
+
     )
 
     // فونت انتخابی برای تم برنامه

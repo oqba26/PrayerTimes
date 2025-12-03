@@ -1,5 +1,6 @@
 package com.oqba26.prayertimes.widget
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -9,13 +10,15 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
-import android.text.Html
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
-import androidx.core.graphics.toColorInt
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -152,22 +155,39 @@ open class ModernWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    // ✅ تابع جدید: آپدیت فوری با partiallyUpdateAppWidget
     @RequiresApi(Build.VERSION_CODES.N)
-    private suspend fun updateOneWidgetImmediately(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+    private suspend fun updateOneWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int
+    ) {
+        // Redirect to the immediate update method to avoid code duplication
+        updateOneWidgetImmediately(context, appWidgetManager, appWidgetId)
+    }
+
+    @SuppressLint("ObsoleteSdkInt")
+    @RequiresApi(Build.VERSION_CODES.N)
+    private suspend fun updateOneWidgetImmediately(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int
+    ) {
         val startTime = System.currentTimeMillis()
         Log.d("ModernWidgetProvider", "updateOneWidgetImmediately - START for ID: $appWidgetId")
 
         try {
             val appSettings = context.dataStore.data.first()
 
-            val usePersianNumbers = appSettings[booleanPreferencesKey("use_persian_numbers")] ?: true
-            val useNumericDate = appSettings[booleanPreferencesKey("use_numeric_date_format_widget")] ?: false
+            val usePersianNumbers =
+                appSettings[booleanPreferencesKey("use_persian_numbers")] ?: true
+            val useNumericDate =
+                appSettings[booleanPreferencesKey("use_numeric_date_format_widget")] ?: false
             val isDarkTheme = appSettings[booleanPreferencesKey("is_dark_theme")] ?: false
             val use24HourFormat = appSettings[booleanPreferencesKey("use_24_hour_format")] ?: true
             val fontId = appSettings[stringPreferencesKey("fontId")] ?: "estedad"
             val showGeneralTimes = appSettings[booleanPreferencesKey("show_general_times")] ?: true
-            val showSpecificTimes = appSettings[booleanPreferencesKey("show_specific_times")] ?: true
+            val showSpecificTimes =
+                appSettings[booleanPreferencesKey("show_specific_times")] ?: true
 
             val primaryTextColor: Int
             val secondaryTextColor: Int
@@ -180,24 +200,31 @@ open class ModernWidgetProvider : AppWidgetProvider() {
             val backgroundResource: Int
 
             if (isDarkTheme) {
-                primaryTextColor = Color.WHITE
-                secondaryTextColor = Color.LTGRAY
-                prayerTimeColor = "#80DEEA".toColorInt()
-                prayerHighlightColor = "#FFF59D".toColorInt()
-                persianDateColor = prayerTimeColor
-                navButtonColor = "#78909C".toColorInt()
-                todayButtonColor = "#64B5F6".toColorInt()
-                separatorColor = "#424242".toColorInt()
+                primaryTextColor = ContextCompat.getColor(context, R.color.widget_dark_primary_text)
+                secondaryTextColor =
+                    ContextCompat.getColor(context, R.color.widget_dark_secondary_text)
+                prayerTimeColor = ContextCompat.getColor(context, R.color.widget_dark_prayer_time)
+                prayerHighlightColor =
+                    ContextCompat.getColor(context, R.color.widget_dark_prayer_highlight)
+                persianDateColor = ContextCompat.getColor(context, R.color.widget_dark_persian_date)
+                navButtonColor = ContextCompat.getColor(context, R.color.widget_dark_nav_button)
+                todayButtonColor = ContextCompat.getColor(context, R.color.widget_dark_today_button)
+                separatorColor = ContextCompat.getColor(context, R.color.widget_dark_separator)
                 backgroundResource = R.drawable.widget_background_dark
             } else {
-                primaryTextColor = Color.BLACK
-                secondaryTextColor = Color.DKGRAY
-                prayerTimeColor = "#0D47A1".toColorInt()
-                prayerHighlightColor = "#2E7D32".toColorInt()
-                persianDateColor = prayerTimeColor
-                navButtonColor = "#546E7A".toColorInt()
-                todayButtonColor = "#1976D2".toColorInt()
-                separatorColor = "#BDBDBD".toColorInt()
+                primaryTextColor =
+                    ContextCompat.getColor(context, R.color.widget_light_primary_text)
+                secondaryTextColor =
+                    ContextCompat.getColor(context, R.color.widget_light_secondary_text)
+                prayerTimeColor = ContextCompat.getColor(context, R.color.widget_light_prayer_time)
+                prayerHighlightColor =
+                    ContextCompat.getColor(context, R.color.widget_light_prayer_highlight)
+                persianDateColor =
+                    ContextCompat.getColor(context, R.color.widget_light_persian_date)
+                navButtonColor = ContextCompat.getColor(context, R.color.widget_light_nav_button)
+                todayButtonColor =
+                    ContextCompat.getColor(context, R.color.widget_light_today_button)
+                separatorColor = ContextCompat.getColor(context, R.color.widget_light_separator)
                 backgroundResource = R.drawable.widget_background_light
             }
 
@@ -210,16 +237,26 @@ open class ModernWidgetProvider : AppWidgetProvider() {
             val (generalTimes, specificTimes) = PrayerUtils.loadSeparatedPrayerTimes(context, date)
 
             val weekDay = DateUtils.getWeekDayName(date)
-            val persianDateStr = if (useNumericDate) DateUtils.formatShamsiShort(date, usePersianNumbers) else DateUtils.formatShamsiLong(date, usePersianNumbers)
-            val hijriDateStr = if (useNumericDate) DateUtils.formatHijriShort(date, usePersianNumbers) else DateUtils.formatHijriLong(date, usePersianNumbers)
-            val gregDateStr = if (useNumericDate) DateUtils.formatGregorianShort(date, usePersianNumbers) else DateUtils.formatGregorianLong(date, usePersianNumbers)
+            val persianDateStr = if (useNumericDate) DateUtils.formatShamsiShort(
+                date,
+                usePersianNumbers
+            ) else DateUtils.formatShamsiLong(date, usePersianNumbers)
+            val hijriDateStr = if (useNumericDate) DateUtils.formatHijriShort(
+                date,
+                usePersianNumbers
+            ) else DateUtils.formatHijriLong(date, usePersianNumbers)
+            val gregDateStr = if (useNumericDate) DateUtils.formatGregorianShort(
+                date,
+                usePersianNumbers
+            ) else DateUtils.formatGregorianLong(date, usePersianNumbers)
 
             val persianDate = "$weekDay $persianDateStr"
             val hijriGregLine = "$gregDateStr | $hijriDateStr"
 
             val now = LocalTime.now()
             val timeNowRaw = SimpleDateFormat("HH:mm", Locale.US).format(Date())
-            val timeDisplay = DateUtils.formatDisplayTime(timeNowRaw, use24HourFormat, usePersianNumbers)
+            val timeDisplay =
+                DateUtils.formatDisplayTime(timeNowRaw, use24HourFormat, usePersianNumbers)
 
             val highlightOrder = listOf("صبح", "طلوع خورشید", "ظهر", "عصر", "مغرب", "عشاء")
             val highlightTimes = specificTimes.toMutableMap().apply {
@@ -236,13 +273,19 @@ open class ModernWidgetProvider : AppWidgetProvider() {
 
             val tf = resolveTypeface(context, fontId)
 
-            val layoutId = if (isLarge) R.layout.modern_widget_layout_large else R.layout.modern_widget_layout
+            val layoutId =
+                if (isLarge) R.layout.modern_widget_layout_large else R.layout.modern_widget_layout
             val views = RemoteViews(context.packageName, layoutId).apply {
                 setInt(R.id.widget_background_view, "setBackgroundResource", backgroundResource)
-                val separatorIds = if (isLarge) listOf(R.id.separator1_large, R.id.separator2_large, R.id.separator3_large) else listOf(R.id.separator1_small, R.id.separator2_small)
+                val separatorIds = if (isLarge) listOf(
+                    R.id.separator1_large,
+                    R.id.separator2_large,
+                    R.id.separator3_large
+                ) else listOf(R.id.separator1_small, R.id.separator2_small)
                 separatorIds.forEach { id -> setInt(id, "setBackgroundColor", separatorColor) }
 
                 if (isLarge) {
+                    val widgetWidthPx = if (minW > 0) dp(context, minW) else dp(context, 300)
                     if (fontId == "system") {
                         setTextViewText(R.id.tv_clock, timeDisplay)
                         setTextColor(R.id.tv_clock, primaryTextColor)
@@ -251,27 +294,102 @@ open class ModernWidgetProvider : AppWidgetProvider() {
                         setTextViewText(R.id.tv_hg_date, hijriGregLine)
                         setTextColor(R.id.tv_hg_date, secondaryTextColor)
 
-                        val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-                        val prayersLine = order.joinToString(" | ") { name ->
+                        val order =
+                            listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
+                        val builder = SpannableStringBuilder()
+                        order.forEachIndexed { index, name ->
                             val raw = (generalTimes + specificTimes)[name] ?: "--:--"
-                            val t = DateUtils.formatDisplayTime(raw, use24HourFormat, usePersianNumbers)
-                            val colorHex = String.format("#%06X", 0xFFFFFF and if (name == generalHighlightName) prayerHighlightColor else prayerTimeColor)
-                            if (name == generalHighlightName) "<b><font color=\'$colorHex\'>$name: $t</font></b>" else "<font color=\'$colorHex\'>$name: $t</font>"
+                            val t =
+                                DateUtils.formatDisplayTime(raw, use24HourFormat, usePersianNumbers)
+                            val part = "$name: $t"
+                            val start = builder.length
+                            builder.append(part)
+                            if (name == generalHighlightName) {
+                                builder.setSpan(StyleSpan(Typeface.BOLD), start, builder.length, 0)
+                                builder.setSpan(
+                                    ForegroundColorSpan(prayerHighlightColor),
+                                    start,
+                                    builder.length,
+                                    0
+                                )
+                            } else {
+                                builder.setSpan(
+                                    ForegroundColorSpan(prayerTimeColor),
+                                    start,
+                                    builder.length,
+                                    0
+                                )
+                            }
+                            if (index < order.size - 1) {
+                                builder.append(" | ")
+                            }
                         }
-                        val spanned = Html.fromHtml(prayersLine, Html.FROM_HTML_MODE_LEGACY)
-                        setTextViewText(R.id.tv_prayers_line, spanned)
+                        setTextViewText(R.id.tv_prayers_line, builder)
 
-                        setViewVisibility(R.id.tv_clock, View.VISIBLE); setViewVisibility(R.id.iv_clock, View.GONE)
-                        setViewVisibility(R.id.tv_persian_date, View.VISIBLE); setViewVisibility(R.id.iv_persian_date, View.GONE)
-                        setViewVisibility(R.id.tv_hg_date, View.VISIBLE); setViewVisibility(R.id.iv_hg_date, View.GONE)
-                        setViewVisibility(R.id.tv_prayers_line, View.VISIBLE); setViewVisibility(R.id.iv_prayers, View.GONE)
+
+                        setViewVisibility(
+                            R.id.tv_clock,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.iv_clock, View.GONE)
+                        setViewVisibility(
+                            R.id.tv_persian_date,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.iv_persian_date, View.GONE)
+                        setViewVisibility(
+                            R.id.tv_hg_date,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.iv_hg_date, View.GONE)
+                        setViewVisibility(
+                            R.id.tv_prayers_line,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.iv_prayers, View.GONE)
                     } else {
-                        setImageViewBitmap(R.id.iv_clock, textBitmap(context, timeDisplay, tf, 26f, primaryTextColor, dp(context, 260)))
-                        setImageViewBitmap(R.id.iv_persian_date, textBitmap(context, persianDate, tf, 16f, persianDateColor, dp(context, 260)))
-                        setImageViewBitmap(R.id.iv_hg_date, textBitmap(context, hijriGregLine, tf, 13f, secondaryTextColor, dp(context, 260)))
+                        setImageViewBitmap(
+                            R.id.iv_clock,
+                            textBitmap(
+                                context,
+                                timeDisplay,
+                                tf,
+                                26f,
+                                primaryTextColor,
+                                widgetWidthPx
+                            )
+                        )
+                        setImageViewBitmap(
+                            R.id.iv_persian_date,
+                            textBitmap(
+                                context,
+                                persianDate,
+                                tf,
+                                16f,
+                                persianDateColor,
+                                widgetWidthPx
+                            )
+                        )
+                        setImageViewBitmap(
+                            R.id.iv_hg_date,
+                            textBitmap(
+                                context,
+                                hijriGregLine,
+                                tf,
+                                13f,
+                                secondaryTextColor,
+                                widgetWidthPx
+                            )
+                        )
 
                         if (showGeneralTimes) {
-                            val bmpPrayers = createPrayerTimesBitmapWithHighlight(context, generalTimes, generalHighlightName, tf, dp(context, 300), prayerTimeColor, prayerHighlightColor, use24HourFormat, usePersianNumbers)
+                            val bmpPrayers = createPrayerTimesBitmapWithHighlight(
+                                context,
+                                generalTimes,
+                                generalHighlightName,
+                                tf,
+                                widgetWidthPx,
+                                prayerTimeColor,
+                                prayerHighlightColor,
+                                use24HourFormat,
+                                usePersianNumbers
+                            )
                             setImageViewBitmap(R.id.iv_prayers, bmpPrayers)
                             setViewVisibility(R.id.iv_prayers, View.VISIBLE)
                         } else {
@@ -279,7 +397,17 @@ open class ModernWidgetProvider : AppWidgetProvider() {
                         }
 
                         if (showSpecificTimes) {
-                            val bmp5 = createFivePrayerTimesBitmap(context, specificTimes, specificHighlightName, tf, dp(context, 300), prayerTimeColor, prayerHighlightColor, use24HourFormat, usePersianNumbers)
+                            val bmp5 = createFivePrayerTimesBitmap(
+                                context,
+                                specificTimes,
+                                specificHighlightName,
+                                tf,
+                                widgetWidthPx,
+                                prayerTimeColor,
+                                prayerHighlightColor,
+                                use24HourFormat,
+                                usePersianNumbers
+                            )
                             setImageViewBitmap(R.id.iv_prayer_times_5, bmp5)
                             setViewVisibility(R.id.iv_prayer_times_5, View.VISIBLE)
                         } else {
@@ -292,256 +420,245 @@ open class ModernWidgetProvider : AppWidgetProvider() {
                             setViewVisibility(R.id.separator3_large, View.GONE)
                         }
 
-                        setViewVisibility(R.id.iv_clock, View.VISIBLE); setViewVisibility(R.id.tv_clock, View.GONE)
-                        setViewVisibility(R.id.iv_persian_date, View.VISIBLE); setViewVisibility(R.id.tv_persian_date, View.GONE)
-                        setViewVisibility(R.id.iv_hg_date, View.VISIBLE); setViewVisibility(R.id.tv_hg_date, View.GONE)
+                        setViewVisibility(
+                            R.id.iv_clock,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.tv_clock, View.GONE)
+                        setViewVisibility(
+                            R.id.iv_persian_date,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.tv_persian_date, View.GONE)
+                        setViewVisibility(
+                            R.id.iv_hg_date,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.tv_hg_date, View.GONE)
                         setViewVisibility(R.id.tv_prayers_line, View.GONE)
                     }
-                    applyNavButtonsBitmaps(context, this, tf, showTodayButton = !isToday(date), navButtonColor, todayButtonColor)
-                    setOnClickPendingIntent(R.id.iv_prev_day, pending(context, ACTION_WIDGET_PREV, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.iv_next_day, pending(context, ACTION_WIDGET_NEXT, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.btn_today, pending(context, ACTION_WIDGET_TODAY, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.tv_persian_date, pending(context, ACTION_TOGGLE_DATE_FORMAT, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.iv_persian_date, pending(context, ACTION_TOGGLE_DATE_FORMAT, appWidgetId, this@ModernWidgetProvider.javaClass))
+                    applyNavButtonsBitmaps(
+                        context,
+                        this,
+                        tf,
+                        showTodayButton = !isToday(date),
+                        navButtonColor,
+                        todayButtonColor
+                    )
+                    setOnClickPendingIntent(
+                        R.id.iv_prev_day,
+                        pending(
+                            context,
+                            ACTION_WIDGET_PREV,
+                            appWidgetId,
+                            this@ModernWidgetProvider.javaClass
+                        )
+                    )
+                    setOnClickPendingIntent(
+                        R.id.iv_next_day,
+                        pending(
+                            context,
+                            ACTION_WIDGET_NEXT,
+                            appWidgetId,
+                            this@ModernWidgetProvider.javaClass
+                        )
+                    )
+                    setOnClickPendingIntent(
+                        R.id.btn_today,
+                        pending(
+                            context,
+                            ACTION_WIDGET_TODAY,
+                            appWidgetId,
+                            this@ModernWidgetProvider.javaClass
+                        )
+                    )
+                    setOnClickPendingIntent(
+                        R.id.tv_persian_date,
+                        pending(
+                            context,
+                            ACTION_TOGGLE_DATE_FORMAT,
+                            appWidgetId,
+                            this@ModernWidgetProvider.javaClass
+                        )
+                    )
+                    setOnClickPendingIntent(
+                        R.id.iv_persian_date,
+                        pending(
+                            context,
+                            ACTION_TOGGLE_DATE_FORMAT,
+                            appWidgetId,
+                            this@ModernWidgetProvider.javaClass
+                        )
+                    )
                 } else {
+                    val smallWidgetWidthPx = if (minW > 0) dp(context, minW) else dp(context, 240)
+
                     if (fontId == "system") {
-                        setTextViewText(R.id.tv_widget_time, timeDisplay); setTextColor(R.id.tv_widget_time, primaryTextColor)
-                        setTextViewText(R.id.tv_widget_date_shamsi, persianDate); setTextColor(R.id.tv_widget_date_shamsi, persianDateColor)
-                        setTextViewText(R.id.tv_widget_date_hijri_gregorian, hijriGregLine); setTextColor(R.id.tv_widget_date_hijri_gregorian, secondaryTextColor)
-                        val nextInfo = PrayerUtils.getNextPrayerNameAndTime(context, date, now, generalTimes + specificTimes)
+                        setTextViewText(
+                            R.id.tv_widget_time,
+                            timeDisplay
+                        ); setTextColor(R.id.tv_widget_time, primaryTextColor)
+                        setTextViewText(
+                            R.id.tv_widget_date_shamsi,
+                            persianDate
+                        ); setTextColor(R.id.tv_widget_date_shamsi, persianDateColor)
+                        setTextViewText(
+                            R.id.tv_widget_date_hijri_gregorian,
+                            hijriGregLine
+                        ); setTextColor(R.id.tv_widget_date_hijri_gregorian, secondaryTextColor)
+                        val nextInfo = PrayerUtils.getNextPrayerNameAndTime(
+                            context,
+                            date,
+                            now,
+                            generalTimes + specificTimes
+                        )
                         val nextRaw = nextInfo?.second ?: "--:--"
-                        val nextText = nextInfo?.let { "${it.first} - ${DateUtils.formatDisplayTime(nextRaw, use24HourFormat, usePersianNumbers)}" } ?: "—"
-                        setTextViewText(R.id.tv_widget_next_prayer, nextText); setTextColor(R.id.tv_widget_next_prayer, prayerHighlightColor)
+                        val nextText = nextInfo?.let {
+                            "${it.first} - ${
+                                DateUtils.formatDisplayTime(
+                                    nextRaw,
+                                    use24HourFormat,
+                                    usePersianNumbers
+                                )
+                            }"
+                        } ?: "—"
+                        setTextViewText(
+                            R.id.tv_widget_next_prayer,
+                            nextText
+                        ); setTextColor(R.id.tv_widget_next_prayer, prayerHighlightColor)
 
-                        setViewVisibility(R.id.tv_widget_time, View.VISIBLE); setViewVisibility(R.id.iv_widget_time, View.GONE)
-                        setViewVisibility(R.id.tv_widget_date_shamsi, View.VISIBLE); setViewVisibility(R.id.iv_widget_shamsi, View.GONE)
-                        setViewVisibility(R.id.tv_widget_date_hijri_gregorian, View.VISIBLE); setViewVisibility(R.id.iv_widget_hg, View.GONE)
-                        setViewVisibility(R.id.tv_widget_next_prayer, View.VISIBLE); setViewVisibility(R.id.iv_widget_next, View.GONE)
+                        setViewVisibility(
+                            R.id.tv_widget_time,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.iv_widget_time, View.GONE)
+                        setViewVisibility(
+                            R.id.tv_widget_date_shamsi,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.iv_widget_shamsi, View.GONE)
+                        setViewVisibility(
+                            R.id.tv_widget_date_hijri_gregorian,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.iv_widget_hg, View.GONE)
+                        setViewVisibility(
+                            R.id.tv_widget_next_prayer,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.iv_widget_next, View.GONE)
                     } else {
-                        setImageViewBitmap(R.id.iv_widget_time, textBitmap(context, timeDisplay, tf, 22f, primaryTextColor, dp(context, 240)))
-                        setImageViewBitmap(R.id.iv_widget_shamsi, textBitmap(context, persianDate, tf, 14f, persianDateColor, dp(context, 240)))
-                        setImageViewBitmap(R.id.iv_widget_hg, textBitmap(context, hijriGregLine, tf, 12f, secondaryTextColor, dp(context, 240)))
-                        val nextInfo = PrayerUtils.getNextPrayerNameAndTime(context, date, now, generalTimes + specificTimes)
+                        setImageViewBitmap(
+                            R.id.iv_widget_time,
+                            textBitmap(
+                                context,
+                                timeDisplay,
+                                tf,
+                                22f,
+                                primaryTextColor,
+                                smallWidgetWidthPx
+                            )
+                        )
+                        setImageViewBitmap(
+                            R.id.iv_widget_shamsi,
+                            textBitmap(
+                                context,
+                                persianDate,
+                                tf,
+                                14f,
+                                persianDateColor,
+                                smallWidgetWidthPx
+                            )
+                        )
+                        setImageViewBitmap(
+                            R.id.iv_widget_hg,
+                            textBitmap(
+                                context,
+                                hijriGregLine,
+                                tf,
+                                12f,
+                                secondaryTextColor,
+                                smallWidgetWidthPx
+                            )
+                        )
+                        val nextInfo = PrayerUtils.getNextPrayerNameAndTime(
+                            context,
+                            date,
+                            now,
+                            generalTimes + specificTimes
+                        )
                         val nextRaw = nextInfo?.second ?: "--:--"
-                        val nextText = nextInfo?.let { "${it.first} - ${DateUtils.formatDisplayTime(nextRaw, use24HourFormat, usePersianNumbers)}" } ?: "—"
-                        setImageViewBitmap(R.id.iv_widget_next, textBitmap(context, nextText, tf, 14f, prayerHighlightColor, dp(context, 240)))
+                        val nextText = nextInfo?.let {
+                            "${it.first} - ${
+                                DateUtils.formatDisplayTime(
+                                    nextRaw,
+                                    use24HourFormat,
+                                    usePersianNumbers
+                                )
+                            }"
+                        } ?: "—"
+                        setImageViewBitmap(
+                            R.id.iv_widget_next,
+                            textBitmap(
+                                context,
+                                nextText,
+                                tf,
+                                14f,
+                                prayerHighlightColor,
+                                smallWidgetWidthPx
+                            )
+                        )
 
-                        setViewVisibility(R.id.iv_widget_time, View.VISIBLE); setViewVisibility(R.id.tv_widget_time, View.GONE)
-                        setViewVisibility(R.id.iv_widget_shamsi, View.VISIBLE); setViewVisibility(R.id.tv_widget_date_shamsi, View.GONE)
-                        setViewVisibility(R.id.iv_widget_hg, View.VISIBLE); setViewVisibility(R.id.tv_widget_date_hijri_gregorian, View.GONE)
-                        setViewVisibility(R.id.iv_widget_next, View.VISIBLE); setViewVisibility(R.id.tv_widget_next_prayer, View.GONE)
+                        setViewVisibility(
+                            R.id.iv_widget_time,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.tv_widget_time, View.GONE)
+                        setViewVisibility(
+                            R.id.iv_widget_shamsi,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.tv_widget_date_shamsi, View.GONE)
+                        setViewVisibility(
+                            R.id.iv_widget_hg,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.tv_widget_date_hijri_gregorian, View.GONE)
+                        setViewVisibility(
+                            R.id.iv_widget_next,
+                            View.VISIBLE
+                        ); setViewVisibility(R.id.tv_widget_next_prayer, View.GONE)
                     }
-                    setOnClickPendingIntent(R.id.tv_widget_date_shamsi, pending(context, ACTION_TOGGLE_DATE_FORMAT, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.iv_widget_shamsi, pending(context, ACTION_TOGGLE_DATE_FORMAT, appWidgetId, this@ModernWidgetProvider.javaClass))
+                    setOnClickPendingIntent(
+                        R.id.tv_widget_date_shamsi,
+                        pending(
+                            context,
+                            ACTION_TOGGLE_DATE_FORMAT,
+                            appWidgetId,
+                            this@ModernWidgetProvider.javaClass
+                        )
+                    )
+                    setOnClickPendingIntent(
+                        R.id.iv_widget_shamsi,
+                        pending(
+                            context,
+                            ACTION_TOGGLE_DATE_FORMAT,
+                            appWidgetId,
+                            this@ModernWidgetProvider.javaClass
+                        )
+                    )
                 }
             }
 
-            // ✅ استفاده از updateAppWidget معمولی
             appWidgetManager.updateAppWidget(appWidgetId, views)
 
-            // ✅ اضافه: یک بار دیگه با partiallyUpdateAppWidget برای اطمینان
-            appWidgetManager.partiallyUpdateAppWidget(appWidgetId, views)
+            // Partially update again for some devices
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                appWidgetManager.partiallyUpdateAppWidget(appWidgetId, views)
+            }
 
             val elapsed = System.currentTimeMillis() - startTime
-            Log.d("ModernWidgetProvider", "updateOneWidgetImmediately - END for ID: $appWidgetId (took ${elapsed}ms)")
+            Log.d(
+                "ModernWidgetProvider",
+                "updateOneWidgetImmediately - END for ID: $appWidgetId (took ${elapsed}ms)"
+            )
 
         } catch (e: Exception) {
             Log.e("ModernWidgetProvider", "updateOneWidgetImmediately - error", e)
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
-    private suspend fun updateOneWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
-        val startTime = System.currentTimeMillis()
-        Log.d("ModernWidgetProvider", "updateOneWidget - START for ID: $appWidgetId")
 
-        try {
-            val appSettings = context.dataStore.data.first()
-
-            val usePersianNumbers = appSettings[booleanPreferencesKey("use_persian_numbers")] ?: true
-            val useNumericDate = appSettings[booleanPreferencesKey("use_numeric_date_format_widget")] ?: false
-            val isDarkTheme = appSettings[booleanPreferencesKey("is_dark_theme")] ?: false
-            val use24HourFormat = appSettings[booleanPreferencesKey("use_24_hour_format")] ?: true
-            val fontId = appSettings[stringPreferencesKey("fontId")] ?: "estedad"
-            val showGeneralTimes = appSettings[booleanPreferencesKey("show_general_times")] ?: true
-            val showSpecificTimes = appSettings[booleanPreferencesKey("show_specific_times")] ?: true
-
-            val primaryTextColor: Int
-            val secondaryTextColor: Int
-            val prayerTimeColor: Int
-            val prayerHighlightColor: Int
-            val persianDateColor: Int
-            val navButtonColor: Int
-            val todayButtonColor: Int
-            val separatorColor: Int
-            val backgroundResource: Int
-
-            if (isDarkTheme) {
-                primaryTextColor = Color.WHITE
-                secondaryTextColor = Color.LTGRAY
-                prayerTimeColor = "#80DEEA".toColorInt()
-                prayerHighlightColor = "#FFF59D".toColorInt()
-                persianDateColor = prayerTimeColor
-                navButtonColor = "#78909C".toColorInt()
-                todayButtonColor = "#64B5F6".toColorInt()
-                separatorColor = "#424242".toColorInt()
-                backgroundResource = R.drawable.widget_background_dark
-            } else {
-                primaryTextColor = Color.BLACK
-                secondaryTextColor = Color.DKGRAY
-                prayerTimeColor = "#0D47A1".toColorInt()
-                prayerHighlightColor = "#2E7D32".toColorInt()
-                persianDateColor = prayerTimeColor
-                navButtonColor = "#546E7A".toColorInt()
-                todayButtonColor = "#1976D2".toColorInt()
-                separatorColor = "#BDBDBD".toColorInt()
-                backgroundResource = R.drawable.widget_background_light
-            }
-
-            val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-            val minW = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-            val minH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-            val isLarge = minW >= 200 || minH >= 180
-
-            val date = getSelectedDate(context, appWidgetId)
-            val (generalTimes, specificTimes) = PrayerUtils.loadSeparatedPrayerTimes(context, date)
-
-            val weekDay = DateUtils.getWeekDayName(date)
-            val persianDateStr = if (useNumericDate) DateUtils.formatShamsiShort(date, usePersianNumbers) else DateUtils.formatShamsiLong(date, usePersianNumbers)
-            val hijriDateStr = if (useNumericDate) DateUtils.formatHijriShort(date, usePersianNumbers) else DateUtils.formatHijriLong(date, usePersianNumbers)
-            val gregDateStr = if (useNumericDate) DateUtils.formatGregorianShort(date, usePersianNumbers) else DateUtils.formatGregorianLong(date, usePersianNumbers)
-
-            val persianDate = "$weekDay $persianDateStr"
-            val hijriGregLine = "$gregDateStr | $hijriDateStr"
-
-            val now = LocalTime.now()
-            val timeNowRaw = SimpleDateFormat("HH:mm", Locale.US).format(Date())
-            val timeDisplay = DateUtils.formatDisplayTime(timeNowRaw, use24HourFormat, usePersianNumbers)
-
-            val highlightOrder = listOf("صبح", "طلوع خورشید", "ظهر", "عصر", "مغرب", "عشاء")
-            val highlightTimes = specificTimes.toMutableMap().apply {
-                generalTimes["طلوع خورشید"]?.let { put("طلوع خورشید", it) }
-            }
-
-            val calculatedHighlight = PrayerUtils.computeHighlightPrayer(now, highlightTimes, highlightOrder)
-            var specificHighlightName = calculatedHighlight
-            if (calculatedHighlight == "طلوع خورشید") {
-                specificHighlightName = "ظهر"
-            }
-
-            val generalHighlightName = PrayerUtils.getGeneralPrayerName(calculatedHighlight)
-
-            val tf = resolveTypeface(context, fontId)
-
-            val layoutId = if (isLarge) R.layout.modern_widget_layout_large else R.layout.modern_widget_layout
-            val views = RemoteViews(context.packageName, layoutId).apply {
-                setInt(R.id.widget_background_view, "setBackgroundResource", backgroundResource)
-                val separatorIds = if (isLarge) listOf(R.id.separator1_large, R.id.separator2_large, R.id.separator3_large) else listOf(R.id.separator1_small, R.id.separator2_small)
-                separatorIds.forEach { id -> setInt(id, "setBackgroundColor", separatorColor) }
-
-                if (isLarge) {
-                    if (fontId == "system") {
-                        setTextViewText(R.id.tv_clock, timeDisplay)
-                        setTextColor(R.id.tv_clock, primaryTextColor)
-                        setTextViewText(R.id.tv_persian_date, persianDate)
-                        setTextColor(R.id.tv_persian_date, persianDateColor)
-                        setTextViewText(R.id.tv_hg_date, hijriGregLine)
-                        setTextColor(R.id.tv_hg_date, secondaryTextColor)
-
-                        val order = listOf("طلوع بامداد", "طلوع خورشید", "ظهر", "عصر", "غروب", "عشاء")
-                        val prayersLine = order.joinToString(" | ") { name ->
-                            val raw = (generalTimes + specificTimes)[name] ?: "--:--"
-                            val t = DateUtils.formatDisplayTime(raw, use24HourFormat, usePersianNumbers)
-                            val colorHex = String.format("#%06X", 0xFFFFFF and if (name == generalHighlightName) prayerHighlightColor else prayerTimeColor)
-                            if (name == generalHighlightName) "<b><font color=\'$colorHex\'>$name: $t</font></b>" else "<font color=\'$colorHex\'>$name: $t</font>"
-                        }
-                        val spanned = Html.fromHtml(prayersLine, Html.FROM_HTML_MODE_LEGACY)
-                        setTextViewText(R.id.tv_prayers_line, spanned)
-
-                        setViewVisibility(R.id.tv_clock, View.VISIBLE); setViewVisibility(R.id.iv_clock, View.GONE)
-                        setViewVisibility(R.id.tv_persian_date, View.VISIBLE); setViewVisibility(R.id.iv_persian_date, View.GONE)
-                        setViewVisibility(R.id.tv_hg_date, View.VISIBLE); setViewVisibility(R.id.iv_hg_date, View.GONE)
-                        setViewVisibility(R.id.tv_prayers_line, View.VISIBLE); setViewVisibility(R.id.iv_prayers, View.GONE)
-                    } else {
-                        setImageViewBitmap(R.id.iv_clock, textBitmap(context, timeDisplay, tf, 26f, primaryTextColor, dp(context, 260)))
-                        setImageViewBitmap(R.id.iv_persian_date, textBitmap(context, persianDate, tf, 16f, persianDateColor, dp(context, 260)))
-                        setImageViewBitmap(R.id.iv_hg_date, textBitmap(context, hijriGregLine, tf, 13f, secondaryTextColor, dp(context, 260)))
-
-                        if (showGeneralTimes) {
-                            val bmpPrayers = createPrayerTimesBitmapWithHighlight(context, generalTimes, generalHighlightName, tf, dp(context, 300), prayerTimeColor, prayerHighlightColor, use24HourFormat, usePersianNumbers)
-                            setImageViewBitmap(R.id.iv_prayers, bmpPrayers)
-                            setViewVisibility(R.id.iv_prayers, View.VISIBLE)
-                        } else {
-                            setViewVisibility(R.id.iv_prayers, View.GONE)
-                        }
-
-                        if (showSpecificTimes) {
-                            val bmp5 = createFivePrayerTimesBitmap(context, specificTimes, specificHighlightName, tf, dp(context, 300), prayerTimeColor, prayerHighlightColor, use24HourFormat, usePersianNumbers)
-                            setImageViewBitmap(R.id.iv_prayer_times_5, bmp5)
-                            setViewVisibility(R.id.iv_prayer_times_5, View.VISIBLE)
-                        } else {
-                            setViewVisibility(R.id.iv_prayer_times_5, View.GONE)
-                        }
-
-                        if (showGeneralTimes && showSpecificTimes) {
-                            setViewVisibility(R.id.separator3_large, View.VISIBLE)
-                        } else {
-                            setViewVisibility(R.id.separator3_large, View.GONE)
-                        }
-
-                        setViewVisibility(R.id.iv_clock, View.VISIBLE); setViewVisibility(R.id.tv_clock, View.GONE)
-                        setViewVisibility(R.id.iv_persian_date, View.VISIBLE); setViewVisibility(R.id.tv_persian_date, View.GONE)
-                        setViewVisibility(R.id.iv_hg_date, View.VISIBLE); setViewVisibility(R.id.tv_hg_date, View.GONE)
-                        setViewVisibility(R.id.tv_prayers_line, View.GONE)
-                    }
-                    applyNavButtonsBitmaps(context, this, tf, showTodayButton = !isToday(date), navButtonColor, todayButtonColor)
-                    setOnClickPendingIntent(R.id.iv_prev_day, pending(context, ACTION_WIDGET_PREV, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.iv_next_day, pending(context, ACTION_WIDGET_NEXT, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.btn_today, pending(context, ACTION_WIDGET_TODAY, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.tv_persian_date, pending(context, ACTION_TOGGLE_DATE_FORMAT, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.iv_persian_date, pending(context, ACTION_TOGGLE_DATE_FORMAT, appWidgetId, this@ModernWidgetProvider.javaClass))
-                } else {
-                    if (fontId == "system") {
-                        setTextViewText(R.id.tv_widget_time, timeDisplay); setTextColor(R.id.tv_widget_time, primaryTextColor)
-                        setTextViewText(R.id.tv_widget_date_shamsi, persianDate); setTextColor(R.id.tv_widget_date_shamsi, persianDateColor)
-                        setTextViewText(R.id.tv_widget_date_hijri_gregorian, hijriGregLine); setTextColor(R.id.tv_widget_date_hijri_gregorian, secondaryTextColor)
-                        val nextInfo = PrayerUtils.getNextPrayerNameAndTime(context, date, now, generalTimes + specificTimes)
-                        val nextRaw = nextInfo?.second ?: "--:--"
-                        val nextText = nextInfo?.let { "${it.first} - ${DateUtils.formatDisplayTime(nextRaw, use24HourFormat, usePersianNumbers)}" } ?: "—"
-                        setTextViewText(R.id.tv_widget_next_prayer, nextText); setTextColor(R.id.tv_widget_next_prayer, prayerHighlightColor)
-
-                        setViewVisibility(R.id.tv_widget_time, View.VISIBLE); setViewVisibility(R.id.iv_widget_time, View.GONE)
-                        setViewVisibility(R.id.tv_widget_date_shamsi, View.VISIBLE); setViewVisibility(R.id.iv_widget_shamsi, View.GONE)
-                        setViewVisibility(R.id.tv_widget_date_hijri_gregorian, View.VISIBLE); setViewVisibility(R.id.iv_widget_hg, View.GONE)
-                        setViewVisibility(R.id.tv_widget_next_prayer, View.VISIBLE); setViewVisibility(R.id.iv_widget_next, View.GONE)
-                    } else {
-                        setImageViewBitmap(R.id.iv_widget_time, textBitmap(context, timeDisplay, tf, 22f, primaryTextColor, dp(context, 240)))
-                        setImageViewBitmap(R.id.iv_widget_shamsi, textBitmap(context, persianDate, tf, 14f, persianDateColor, dp(context, 240)))
-                        setImageViewBitmap(R.id.iv_widget_hg, textBitmap(context, hijriGregLine, tf, 12f, secondaryTextColor, dp(context, 240)))
-                        val nextInfo = PrayerUtils.getNextPrayerNameAndTime(context, date, now, generalTimes + specificTimes)
-                        val nextRaw = nextInfo?.second ?: "--:--"
-                        val nextText = nextInfo?.let { "${it.first} - ${DateUtils.formatDisplayTime(nextRaw, use24HourFormat, usePersianNumbers)}" } ?: "—"
-                        setImageViewBitmap(R.id.iv_widget_next, textBitmap(context, nextText, tf, 14f, prayerHighlightColor, dp(context, 240)))
-
-                        setViewVisibility(R.id.iv_widget_time, View.VISIBLE); setViewVisibility(R.id.tv_widget_time, View.GONE)
-                        setViewVisibility(R.id.iv_widget_shamsi, View.VISIBLE); setViewVisibility(R.id.tv_widget_date_shamsi, View.GONE)
-                        setViewVisibility(R.id.iv_widget_hg, View.VISIBLE); setViewVisibility(R.id.tv_widget_date_hijri_gregorian, View.GONE)
-                        setViewVisibility(R.id.iv_widget_next, View.VISIBLE); setViewVisibility(R.id.tv_widget_next_prayer, View.GONE)
-                    }
-                    setOnClickPendingIntent(R.id.tv_widget_date_shamsi, pending(context, ACTION_TOGGLE_DATE_FORMAT, appWidgetId, this@ModernWidgetProvider.javaClass))
-                    setOnClickPendingIntent(R.id.iv_widget_shamsi, pending(context, ACTION_TOGGLE_DATE_FORMAT, appWidgetId, this@ModernWidgetProvider.javaClass))
-                }
-            }
-
-            appWidgetManager.updateAppWidget(appWidgetId, views)
-
-            val elapsed = System.currentTimeMillis() - startTime
-            Log.d("ModernWidgetProvider", "updateOneWidget - END for ID: $appWidgetId (took ${elapsed}ms)")
-
-        } catch (e: Exception) {
-            Log.e("ModernWidgetProvider", "updateOneWidget - error", e)
-        }
-    }
 
     private fun pending(context: Context, action: String, appWidgetId: Int, providerClass: Class<out AppWidgetProvider>): PendingIntent {
         val i = Intent(context, providerClass).apply {
